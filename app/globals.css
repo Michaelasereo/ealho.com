@@ -1,26 +1,91 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Cal.com inspired color palette - Dark Mode */
+  --background: #0a0a0a;
+  --foreground: #f9fafb;
+  --muted: #1f2937;
+  --muted-foreground: #d1d5db;
+  --border: #374151;
+  --input: #1f2937;
+  --primary: #404040;
+  --primary-foreground: #f9fafb;
+  --secondary: #374151;
+  --secondary-foreground: #d1d5db;
+  --accent: #374151;
+  --accent-foreground: #f9fafb;
+  --destructive: #ef4444;
+  --destructive-foreground: #f9fafb;
+  --ring: #404040;
+  --radius: 0.5rem;
+  
+  /* Cal.com specific colors */
+  --cal-gray-50: #f9fafb;
+  --cal-gray-100: #f3f4f6;
+  --cal-gray-200: #e5e7eb;
+  --cal-gray-300: #d1d5db;
+  --cal-gray-400: #9ca3af;
+  --cal-gray-500: #6b7280;
+  --cal-gray-600: #4b5563;
+  --cal-gray-700: #374151;
+  --cal-gray-800: #1f2937;
+  --cal-gray-900: #111827;
+  --cal-black: #292929;
+  
+  --cal-primary: #404040;
+  --cal-primary-hover: #525252;
+  --cal-primary-light: #f3f4f6;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+  
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Remove all blue focus colors */
+*:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: #262626 !important;
+}
+
+/* Cal.com inspired spacing - 4px base unit */
+.space-1 { margin: 0.25rem; }
+.space-2 { margin: 0.5rem; }
+.space-3 { margin: 0.75rem; }
+.space-4 { margin: 1rem; }

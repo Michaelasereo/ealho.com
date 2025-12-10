@@ -1,65 +1,187 @@
+import Link from "next/link";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Calendar, Clock, Video, Globe, ChevronDown, ArrowRight } from "lucide-react";
 
-export default function Home() {
+const navLinks: { name: string; href: string }[] = [];
+
+export default function HomePage() {
+  const today = new Date();
+  const currentMonthName = today.toLocaleString("en-US", { month: "long" });
+  const currentYear = today.getFullYear();
+  const startOfWeek = (() => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - today.getDay()); // start on Sunday
+    return d;
+  })();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+    <div className="min-h-screen bg-black text-white">
+      {/* Nav */}
+      <header className="border-b border-white/10 bg-black/30 backdrop-blur-sm">
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+              src="/daiyet logo.svg"
+              alt="Daiyet"
+              width={120}
+              height={32}
+              className="h-8 w-auto"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <span className="text-sm text-white/60">Scheduling reinvented</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/login"
+              className="text-white/80 hover:text-white transition-colors text-sm"
+            >
+              Login
+            </Link>
+            <Button asChild className="bg-[#FFF4E0] text-black hover:bg-[#ffe9c2]">
+              <Link href="/signup">Get Started</Link>
+            </Button>
+          </div>
         </div>
+      </header>
+
+      <main>
+        {/* Hero */}
+        <section className="container mx-auto px-6 min-h-[calc(100vh-80px)] flex items-center justify-center py-16">
+          <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-6 self-center">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs text-white/70">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: "#E5FF53" }}></span>
+                Now serving patients in Nigeria
+              </div>
+              <h1 className="text-4xl lg:text-5xl font-semibold leading-tight">
+                Book dietitian consultations without the back-and-forth.
+              </h1>
+              <p className="text-lg text-white/70 leading-relaxed max-w-2xl">
+                Daiyet pairs you with licensed dietitians and handles scheduling, reminders, and meal-plan delivery with a Cal.com–inspired experience.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button asChild className="bg-[#FFF4E0] text-black hover:bg-[#ffe9c2] h-12 px-6">
+                  <Link href="/signup">
+                    Book a Call <ArrowRight className="h-4 w-4 ml-2" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="border-white/20 text-white hover:bg-white/5 h-12 px-6">
+                  Meet Dietitians
+                </Button>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-white/60">
+                <div className="flex items-center gap-1">
+                  <span style={{ color: "#E5FF53" }}>●</span> Instant confirmations
+                </div>
+                <div className="flex items-center gap-1">
+                  <span style={{ color: "#E5FF53" }}>●</span> Video or in-person
+                </div>
+              </div>
+            </div>
+
+            {/* Booking Card */}
+            <div className="relative mt-16 lg:mt-14 mb-16 flex justify-center self-center w-full">
+              <Card className="relative z-10 bg-[#FFF4E0] border border-[#f1e2c0] shadow-xl w-full max-w-[520px]">
+                <CardContent className="p-6">
+                <h3 className="text-sm font-semibold text-[#374151] mb-1">Dt. Odeyemi Makinde</h3>
+                <h4 className="text-xl font-semibold mb-1 text-[#111827]">Nutrition Consultation</h4>
+                <p className="text-sm text-[#4b5563] mb-6">
+                  1-on-1 consult to review goals, history, and build a tailored plan.
+                </p>
+
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-1 text-sm text-[#111827]">
+                    <Clock className="h-4 w-4 text-[#6b7280]" />
+                    <span>Duration</span>
+                  </div>
+                  <div className="text-sm text-white font-medium bg-[#111827] border border-[#111827] rounded-md px-4 py-2 inline-flex">
+                    45 minutes
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 mb-4 text-sm text-[#111827]">
+                  <Video className="h-4 w-4 text-[#6b7280]" />
+                  <span>Google Meet</span>
+                </div>
+
+                <div className="flex items-center gap-2 mb-6 text-sm text-[#111827]">
+                  <Globe className="h-4 w-4 text-[#6b7280]" />
+                  <span>Africa/Lagos</span>
+                  <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
+                </div>
+
+                <div className="border-t border-[#e5e7eb] pt-6">
+                  <div className="flex items-center justify-between mb-4 text-sm text-[#111827]">
+                    <h5 className="font-semibold">
+                      {currentMonthName} {currentYear}
+                    </h5>
+                    <div className="flex gap-2 text-[#9ca3af]">
+                      <button className="p-1 hover:bg-[#f3f4f6] rounded">{"<"}</button>
+                      <button className="p-1 hover:bg-[#f3f4f6] rounded">{">"}</button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 mb-2 text-[11px] text-[#9ca3af]">
+                    {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((day) => (
+                      <div key={day} className="text-center py-2 font-medium">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {Array.from({ length: 7 }).map((_, i) => {
+                      const dateObj = new Date(startOfWeek);
+                      dateObj.setDate(startOfWeek.getDate() + i);
+                      const dateNum = dateObj.getDate();
+                      const isCurrentMonth = dateObj.getMonth() === today.getMonth();
+                      const isSelected = dateObj.toDateString() === today.toDateString();
+                      const isAvailable = true;
+                      const hasDot = isSelected;
+                      return (
+                        <button
+                          key={dateObj.toISOString()}
+                          className={`aspect-square text-sm rounded-md transition-colors flex items-center justify-center ${
+                            isSelected
+                              ? "bg-[#111827] text-white"
+                              : isAvailable
+                                ? `hover:bg-white hover:text-[#111827] ${
+                                    isCurrentMonth ? "text-[#111827]" : "text-[#9ca3af]"
+                                  }`
+                                : "text-[#cbd5e1] cursor-not-allowed"
+                          }`}
+                          disabled={!isAvailable}
+                        >
+                          <div className="flex flex-col items-center justify-center h-full">
+                            <span>{dateNum}</span>
+                            {hasDot && (
+                              <span className="w-1 h-1 bg-[#111827] rounded-full mt-0.5"></span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
       </main>
+
+      <footer className="border-t border-white/10 bg-black/40">
+        <div className="container mx-auto px-6 py-6 flex flex-col sm:flex-row justify-between gap-4 text-sm text-white/70">
+          <span>© {new Date().getFullYear()} Daiyet. All rights reserved.</span>
+          <div className="flex gap-4">
+            <Link href="#terms" className="hover:text-white transition-colors">
+              Terms of Service
+            </Link>
+            <Link href="#privacy" className="hover:text-white transition-colors">
+              Privacy Policy
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
