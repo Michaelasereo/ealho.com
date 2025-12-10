@@ -121,7 +121,7 @@ export default function DietitianEnrollmentPage() {
     if (step === 3) setStep(2);
   };
 
-  const onScrollCheck = (ref: React.RefObject<HTMLDivElement>, setter: (v: boolean) => void) => {
+  const onScrollCheck = (ref: React.RefObject<HTMLDivElement | null>, setter: (v: boolean) => void) => {
     const el = ref.current;
     if (!el) return;
     const reachedBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;

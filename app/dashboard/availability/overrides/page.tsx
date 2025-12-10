@@ -7,8 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Pencil, Info } from "lucide-react";
 import { DateOverrideModal } from "@/components/availability/DateOverrideModal";
 
+type Override = {
+  id: string;
+  date: Date;
+  type: string;
+  startTime?: string;
+  endTime?: string;
+};
+
 // Mock date overrides - in production, fetch from API
-const mockOverrides = [
+const mockOverrides: Override[] = [
   {
     id: "1",
     date: new Date("2024-12-10"),
@@ -26,7 +34,7 @@ const mockOverrides = [
 export default function DateOverridesPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const [overrides, setOverrides] = useState(mockOverrides);
+  const [overrides, setOverrides] = useState<Override[]>(mockOverrides);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOverride, setEditingOverride] = useState<string | null>(null);
   
@@ -53,29 +61,35 @@ export default function DateOverridesPage() {
       // Update existing override
       if (overrideData.length > 0) {
         const override = overrideData[0];
+        const updated: Override = {
+          id: editingOverride,
+          date: override.date,
+          type: override.type,
+        };
+        if (override.type === "available" && override.slots?.[0]) {
+          updated.startTime = override.slots[0].start;
+          updated.endTime = override.slots[0].end;
+        }
         setOverrides(
           overrides.map((o) =>
-            o.id === editingOverride
-              ? {
-                  ...o,
-                  date: override.date,
-                  type: override.type,
-                  startTime: override.type === "available" && override.slots?.[0] ? override.slots[0].start : undefined,
-                  endTime: override.type === "available" && override.slots?.[0] ? override.slots[0].end : undefined,
-                }
-              : o
+            o.id === editingOverride ? updated : o
           )
         );
       }
     } else {
       // Add new overrides for each selected date
-      const newOverrides = overrideData.map((override, index) => ({
-        id: String(overrides.length + index + 1),
-        date: override.date,
-        type: override.type,
-        startTime: override.type === "available" && override.slots?.[0] ? override.slots[0].start : undefined,
-        endTime: override.type === "available" && override.slots?.[0] ? override.slots[0].end : undefined,
-      }));
+      const newOverrides: Override[] = overrideData.map((override, index) => {
+        const newOverride: Override = {
+          id: String(overrides.length + index + 1),
+          date: override.date,
+          type: override.type,
+        };
+        if (override.type === "available" && override.slots?.[0]) {
+          newOverride.startTime = override.slots[0].start;
+          newOverride.endTime = override.slots[0].end;
+        }
+        return newOverride;
+      });
       setOverrides([...overrides, ...newOverrides]);
     }
     setIsModalOpen(false);
