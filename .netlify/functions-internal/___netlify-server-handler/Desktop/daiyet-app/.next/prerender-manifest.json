@@ -882,7 +882,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/privacy": {
+    "/privacy-policy": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -895,8 +895,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/privacy",
-      "dataRoute": "/privacy.rsc",
+      "srcRoute": "/privacy-policy",
+      "dataRoute": "/privacy-policy.rsc",
       "prefetchDataRoute": null,
       "allowHeader": [
         "host",
@@ -932,7 +932,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/terms": {
+    "/terms-of-service": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -945,8 +945,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/terms",
-      "dataRoute": "/terms.rsc",
+      "srcRoute": "/terms-of-service",
+      "dataRoute": "/terms-of-service.rsc",
       "prefetchDataRoute": null,
       "allowHeader": [
         "host",

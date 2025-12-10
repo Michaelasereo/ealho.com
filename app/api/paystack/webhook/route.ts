@@ -3,10 +3,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
+import { createCalendarEventWithMeet } from "@/lib/google-calendar";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-function generateMeetLink(reference: string) {
+// Fallback function if Google Calendar API fails
+function generateFallbackMeetLink(reference: string) {
   const slug = reference.slice(-8);
   return `https://meet.google.com/${slug}`;
 }
@@ -58,17 +60,62 @@ export async function POST(request: NextRequest) {
 
     // Confirm booking and add Meet link
     if (payment.booking_id) {
-      const meetLink = generateMeetLink(reference);
-      const { error: bookingErr } = await supabaseAdmin
+      // Get booking details
+      const { data: booking, error: bookingFetchErr } = await supabaseAdmin
         .from("bookings")
-        .update({
-          status: "CONFIRMED",
-          meeting_link: meetLink,
-        })
-        .eq("id", payment.booking_id);
+        .select("*")
+        .eq("id", payment.booking_id)
+        .single();
 
-      if (bookingErr) {
-        console.error("Failed to update booking:", bookingErr);
+      if (booking && !bookingFetchErr) {
+        // Get dietitian and patient info separately
+        const { data: dietitian } = await supabaseAdmin
+          .from("users")
+          .select("email, name")
+          .eq("id", booking.dietitian_id)
+          .single();
+
+        const { data: patient } = await supabaseAdmin
+          .from("users")
+          .select("email, name")
+          .eq("id", booking.user_id)
+          .single();
+
+        let meetLink = "";
+
+        // Try to create Google Calendar event with Meet link
+        try {
+          const result = await createCalendarEventWithMeet(
+            booking.dietitian_id,
+            {
+              summary: booking.title || "Consultation Session",
+              description: booking.description || "",
+              startTime: booking.start_time,
+              endTime: booking.end_time,
+              attendeeEmails: [
+                dietitian?.email,
+                patient?.email,
+              ].filter(Boolean) as string[],
+            }
+          );
+          meetLink = result.meetLink;
+        } catch (error) {
+          console.error("Failed to create Google Calendar event:", error);
+          // Fallback to placeholder Meet link
+          meetLink = generateFallbackMeetLink(reference);
+        }
+
+        const { error: bookingErr } = await supabaseAdmin
+          .from("bookings")
+          .update({
+            status: "CONFIRMED",
+            meeting_link: meetLink,
+          })
+          .eq("id", payment.booking_id);
+
+        if (bookingErr) {
+          console.error("Failed to update booking:", bookingErr);
+        }
       }
     }
   }

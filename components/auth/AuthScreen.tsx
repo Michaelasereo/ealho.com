@@ -16,12 +16,26 @@ export function AuthScreen({ title, subtitle, redirectPath = "/user-dashboard" }
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGoogle = () => {
-    // Placeholder navigation for testing without auth.
+  const handleGoogle = async () => {
     setIsLoading(true);
     setError(null);
-    if (typeof window !== "undefined") {
-      window.location.href = redirectPath;
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`,
+        },
+      });
+
+      if (error) {
+        setError(error.message);
+        setIsLoading(false);
+      }
+      // OAuth will redirect, so we don't need to handle success here
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sign in with Google");
+      setIsLoading(false);
     }
   };
 

@@ -49,6 +49,15 @@ export default function DietitianEnrollmentPage() {
 
   useEffect(() => {
     const init = async () => {
+      // Check if returning from OAuth callback
+      const urlParams = new URLSearchParams(window.location.search);
+      const connected = urlParams.get("connected");
+      
+      if (connected) {
+        // Clean up URL
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -66,16 +75,27 @@ export default function DietitianEnrollmentPage() {
     void init();
   }, []);
 
-  const handleGoogle = () => {
-    // Placeholder: simulate Google connect for testing without auth.
+  const handleGoogle = async () => {
     setConnecting(true);
     setError(null);
-    setTimeout(() => {
-      setGoogleConnected(true);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/dietitian-enrollment?connected=true`,
+        },
+      });
+
+      if (error) {
+        setError(error.message);
+        setConnecting(false);
+      }
+      // OAuth will redirect, so we don't need to handle success here
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect with Google");
       setConnecting(false);
-      if (!fullName) setFullName("Dietitian Tester");
-      if (!email) setEmail("tester@example.com");
-    }, 300);
+    }
   };
 
   const bioWordCount = useMemo(() => {

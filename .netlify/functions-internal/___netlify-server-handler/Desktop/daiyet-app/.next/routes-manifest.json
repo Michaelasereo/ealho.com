@@ -273,10 +273,10 @@
       "namedRegex": "^/login(?:/)?$"
     },
     {
-      "page": "/privacy",
-      "regex": "^/privacy(?:/)?$",
+      "page": "/privacy-policy",
+      "regex": "^/privacy\\-policy(?:/)?$",
       "routeKeys": {},
-      "namedRegex": "^/privacy(?:/)?$"
+      "namedRegex": "^/privacy\\-policy(?:/)?$"
     },
     {
       "page": "/signup",
@@ -285,10 +285,10 @@
       "namedRegex": "^/signup(?:/)?$"
     },
     {
-      "page": "/terms",
-      "regex": "^/terms(?:/)?$",
+      "page": "/terms-of-service",
+      "regex": "^/terms\\-of\\-service(?:/)?$",
       "routeKeys": {},
-      "namedRegex": "^/terms(?:/)?$"
+      "namedRegex": "^/terms\\-of\\-service(?:/)?$"
     },
     {
       "page": "/user-dashboard",

@@ -63,7 +63,7 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button asChild className="bg-[#FFF4E0] text-black hover:bg-[#ffe9c2] h-12 px-6">
                   <Link href="/signup">
-                    Book a Call <ArrowRight className="h-4 w-4 ml-2" />
+                  Book a Call <ArrowRight className="h-4 w-4 ml-2" />
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="border-white/20 text-white hover:bg-white/5 h-12 px-6">
