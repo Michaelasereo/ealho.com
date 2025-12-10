@@ -1,0 +1,11 @@
+var R=require("../../chunks/ssr/[turbopack]_runtime.js")("server/app/_global-error/page.js")
+R.c("server/chunks/ssr/[root-of-the-server]__c4c65786._.js")
+R.c("server/chunks/ssr/Desktop_daiyet-app_7becb63d._.js")
+R.c("server/chunks/ssr/5f784_next_dist_db5a486d._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__6e176dc8._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__cdc48914._.js")
+R.c("server/chunks/ssr/5f784_next_dist_6e41c9b2._.js")
+R.c("server/chunks/ssr/Desktop_daiyet-app_app_7c1d9f18._.js")
+R.c("server/chunks/ssr/Desktop_daiyet-app__next-internal_server_app__global-error_page_actions_03d9f131.js")
+R.m(62229)
+module.exports=R.m(62229).exports

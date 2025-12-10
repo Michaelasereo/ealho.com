@@ -1,0 +1,367 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/book/[dietitian]",
+      "regex": "^/book/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPdietitian": "nxtPdietitian"
+      },
+      "namedRegex": "^/book/(?<nxtPdietitian>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/dashboard/availability/[id]",
+      "regex": "^/dashboard/availability/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/dashboard/availability/(?<nxtPid>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/admin",
+      "regex": "^/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin(?:/)?$"
+    },
+    {
+      "page": "/admin/analytics",
+      "regex": "^/admin/analytics(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/analytics(?:/)?$"
+    },
+    {
+      "page": "/admin/bookings",
+      "regex": "^/admin/bookings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/bookings(?:/)?$"
+    },
+    {
+      "page": "/admin/dietitians",
+      "regex": "^/admin/dietitians(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/dietitians(?:/)?$"
+    },
+    {
+      "page": "/admin/meal-plans",
+      "regex": "^/admin/meal\\-plans(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/meal\\-plans(?:/)?$"
+    },
+    {
+      "page": "/admin/payouts",
+      "regex": "^/admin/payouts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/payouts(?:/)?$"
+    },
+    {
+      "page": "/admin/revenue",
+      "regex": "^/admin/revenue(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/revenue(?:/)?$"
+    },
+    {
+      "page": "/admin/settings",
+      "regex": "^/admin/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/settings(?:/)?$"
+    },
+    {
+      "page": "/admin/settings/pricing",
+      "regex": "^/admin/settings/pricing(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/settings/pricing(?:/)?$"
+    },
+    {
+      "page": "/admin/users",
+      "regex": "^/admin/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/users(?:/)?$"
+    },
+    {
+      "page": "/admin-login",
+      "regex": "^/admin\\-login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin\\-login(?:/)?$"
+    },
+    {
+      "page": "/api/bookings",
+      "regex": "^/api/bookings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/bookings(?:/)?$"
+    },
+    {
+      "page": "/api/payments/verify",
+      "regex": "^/api/payments/verify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payments/verify(?:/)?$"
+    },
+    {
+      "page": "/api/paystack/initialize",
+      "regex": "^/api/paystack/initialize(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/paystack/initialize(?:/)?$"
+    },
+    {
+      "page": "/api/paystack/webhook",
+      "regex": "^/api/paystack/webhook(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/paystack/webhook(?:/)?$"
+    },
+    {
+      "page": "/bookings",
+      "regex": "^/bookings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/bookings(?:/)?$"
+    },
+    {
+      "page": "/dashboard",
+      "regex": "^/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard(?:/)?$"
+    },
+    {
+      "page": "/dashboard/availability",
+      "regex": "^/dashboard/availability(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/availability(?:/)?$"
+    },
+    {
+      "page": "/dashboard/availability/overrides",
+      "regex": "^/dashboard/availability/overrides(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/availability/overrides(?:/)?$"
+    },
+    {
+      "page": "/dashboard/bookings/canceled",
+      "regex": "^/dashboard/bookings/canceled(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/bookings/canceled(?:/)?$"
+    },
+    {
+      "page": "/dashboard/bookings/past",
+      "regex": "^/dashboard/bookings/past(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/bookings/past(?:/)?$"
+    },
+    {
+      "page": "/dashboard/bookings/recurring",
+      "regex": "^/dashboard/bookings/recurring(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/bookings/recurring(?:/)?$"
+    },
+    {
+      "page": "/dashboard/bookings/unconfirmed",
+      "regex": "^/dashboard/bookings/unconfirmed(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/bookings/unconfirmed(?:/)?$"
+    },
+    {
+      "page": "/dashboard/bookings/upcoming",
+      "regex": "^/dashboard/bookings/upcoming(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/bookings/upcoming(?:/)?$"
+    },
+    {
+      "page": "/dashboard/event-types",
+      "regex": "^/dashboard/event\\-types(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/event\\-types(?:/)?$"
+    },
+    {
+      "page": "/dashboard/meal-plan",
+      "regex": "^/dashboard/meal\\-plan(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/meal\\-plan(?:/)?$"
+    },
+    {
+      "page": "/dashboard/settings",
+      "regex": "^/dashboard/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/settings(?:/)?$"
+    },
+    {
+      "page": "/dashboard/settings/calendars",
+      "regex": "^/dashboard/settings/calendars(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/settings/calendars(?:/)?$"
+    },
+    {
+      "page": "/dashboard/settings/general",
+      "regex": "^/dashboard/settings/general(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/settings/general(?:/)?$"
+    },
+    {
+      "page": "/dashboard/settings/notifications",
+      "regex": "^/dashboard/settings/notifications(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/settings/notifications(?:/)?$"
+    },
+    {
+      "page": "/dashboard/settings/out-of-office",
+      "regex": "^/dashboard/settings/out\\-of\\-office(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/settings/out\\-of\\-office(?:/)?$"
+    },
+    {
+      "page": "/dashboard/settings/profile",
+      "regex": "^/dashboard/settings/profile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/settings/profile(?:/)?$"
+    },
+    {
+      "page": "/dietitian-enrollment",
+      "regex": "^/dietitian\\-enrollment(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dietitian\\-enrollment(?:/)?$"
+    },
+    {
+      "page": "/dietitian-login",
+      "regex": "^/dietitian\\-login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dietitian\\-login(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/privacy",
+      "regex": "^/privacy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/privacy(?:/)?$"
+    },
+    {
+      "page": "/signup",
+      "regex": "^/signup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/signup(?:/)?$"
+    },
+    {
+      "page": "/terms",
+      "regex": "^/terms(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/terms(?:/)?$"
+    },
+    {
+      "page": "/user-dashboard",
+      "regex": "^/user\\-dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/user\\-dashboard(?:/)?$"
+    },
+    {
+      "page": "/user-dashboard/book-a-call",
+      "regex": "^/user\\-dashboard/book\\-a\\-call(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/user\\-dashboard/book\\-a\\-call(?:/)?$"
+    },
+    {
+      "page": "/user-dashboard/meal-plan",
+      "regex": "^/user\\-dashboard/meal\\-plan(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/user\\-dashboard/meal\\-plan(?:/)?$"
+    },
+    {
+      "page": "/user-dashboard/profile-settings",
+      "regex": "^/user\\-dashboard/profile\\-settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/user\\-dashboard/profile\\-settings(?:/)?$"
+    },
+    {
+      "page": "/user-dashboard/refer-and-earn",
+      "regex": "^/user\\-dashboard/refer\\-and\\-earn(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/user\\-dashboard/refer\\-and\\-earn(?:/)?$"
+    },
+    {
+      "page": "/user-dashboard/settings",
+      "regex": "^/user\\-dashboard/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/user\\-dashboard/settings(?:/)?$"
+    },
+    {
+      "page": "/user-dashboard/settings/notifications",
+      "regex": "^/user\\-dashboard/settings/notifications(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/user\\-dashboard/settings/notifications(?:/)?$"
+    },
+    {
+      "page": "/user-dashboard/settings/profile",
+      "regex": "^/user\\-dashboard/settings/profile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/user\\-dashboard/settings/profile(?:/)?$"
+    },
+    {
+      "page": "/user-dashboard/upcoming-meetings",
+      "regex": "^/user\\-dashboard/upcoming\\-meetings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/user\\-dashboard/upcoming\\-meetings(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

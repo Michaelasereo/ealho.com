@@ -173,10 +173,10 @@ export default function HomePage() {
         <div className="container mx-auto px-6 py-6 flex flex-col sm:flex-row justify-between gap-4 text-sm text-white/70">
           <span>© {new Date().getFullYear()} Daiyet. All rights reserved.</span>
           <div className="flex gap-4">
-            <Link href="#terms" className="hover:text-white transition-colors">
+            <Link href="/terms-of-service" className="hover:text-white transition-colors">
               Terms of Service
             </Link>
-            <Link href="#privacy" className="hover:text-white transition-colors">
+            <Link href="/privacy-policy" className="hover:text-white transition-colors">
               Privacy Policy
             </Link>
           </div>
