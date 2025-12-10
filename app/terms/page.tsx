@@ -1,56 +1,98 @@
+const lastUpdated = new Date().toLocaleDateString("en-US");
+
+const sections = [
+  {
+    title: "Using Daiyet",
+    bullets: [
+      "Provide accurate information and use the platform only for lawful scheduling and care.",
+      "Keep your account secure; you are responsible for activity under your login.",
+      "We may update these terms—continuing to use the service means you accept changes.",
+    ],
+  },
+  {
+    title: "Bookings, payments, and refunds",
+    bullets: [
+      "Sessions and meal plans follow the pricing and policies shown at booking time.",
+      "Cancellations/refunds follow the rules presented during checkout or by your provider.",
+      "Charges, payouts, and fees may be adjusted for fraud prevention or compliance.",
+    ],
+  },
+  {
+    title: "Provider obligations",
+    bullets: [
+      "Dietitians must maintain valid credentials and comply with local laws and standards.",
+      "We may verify credentials and pause or remove accounts that breach policy or safety.",
+      "Client communications and records should be handled securely and respectfully.",
+    ],
+  },
+  {
+    title: "Acceptable use",
+    bullets: [
+      "No misuse, fraud, harassment, or attempts to disrupt the service.",
+      "Do not upload malicious content or attempt unauthorized access.",
+      "Respect privacy, confidentiality, and applicable regulations.",
+    ],
+  },
+  {
+    title: "Liability",
+    bullets: [
+      "Service is provided “as is” to the fullest extent permitted by law.",
+      "We are not liable for indirect or incidental damages from use of the platform.",
+      "Your remedy is to stop using the service; refunds apply only per stated policies.",
+    ],
+  },
+];
+
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
-        <header>
-          <p className="text-sm uppercase tracking-wide text-white/60">Legal</p>
-          <h1 className="mt-2 text-3xl font-semibold">Terms of Service</h1>
-          <p className="mt-2 text-white/70">
-            Last updated: {new Date().toLocaleDateString("en-US")}
+    <main className="min-h-screen bg-gradient-to-b from-black via-neutral-950 to-black text-white">
+      <div className="max-w-5xl mx-auto px-6 py-14 space-y-10">
+        <header className="space-y-4">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.12em] text-white/70">
+            Legal
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-3xl md:text-4xl font-semibold">Terms of Service</h1>
+            <p className="text-white/70">Last updated: {lastUpdated}</p>
+          </div>
+          <p className="text-white/80 leading-relaxed max-w-3xl">
+            These terms outline how you can use Daiyet, what you can expect from us, and what we
+            expect from you. Please read them carefully before using the platform.
           </p>
         </header>
 
-        <section className="space-y-4 text-white/80 leading-relaxed">
-          <p>
-            By using Daiyet, you agree to these terms. You must provide accurate information and use
-            the platform only for lawful scheduling, payments, and delivery of services. We may
-            update these terms; continued use means acceptance of updates.
-          </p>
-          <p>
-            Bookings and payments: sessions and meal plans are subject to availability and applicable
-            fees. Cancellations and refunds follow the policies presented at the time of booking.
-            You are responsible for keeping your account secure and for all activity under it.
-          </p>
-          <p>
-            Providers: dietitians must maintain valid credentials and comply with applicable laws and
-            professional standards. We may verify credentials and suspend accounts that violate these
-            terms or user safety.
-          </p>
-        </section>
+        <div className="grid gap-6 md:gap-8">
+          {sections.map((section) => (
+            <section
+              key={section.title}
+              className="rounded-2xl border border-white/10 bg-white/5 px-5 md:px-8 py-6 md:py-7 shadow-[0_10px_50px_-30px_rgba(0,0,0,0.6)]"
+            >
+              <div className="flex items-start gap-3">
+                <div className="mt-1 h-2.5 w-2.5 rounded-full bg-amber-300" />
+                <div className="space-y-3">
+                  <h2 className="text-lg md:text-xl font-semibold text-white">{section.title}</h2>
+                  <ul className="space-y-2 text-white/80 leading-relaxed">
+                    {section.bullets.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <span className="mt-[7px] h-1.5 w-1.5 flex-shrink-0 rounded-full bg-white/60" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </section>
+          ))}
+        </div>
 
-        <section className="space-y-3 text-white/80 leading-relaxed">
-          <h2 className="text-xl font-semibold text-white">Acceptable use</h2>
-          <ul className="list-disc list-inside space-y-2">
-            <li>No misuse, fraud, or interference with platform operations.</li>
-            <li>No uploading of malicious content or unauthorized data access.</li>
-            <li>Respect privacy, confidentiality, and applicable regulations.</li>
-          </ul>
-        </section>
-
-        <section className="space-y-3 text-white/80 leading-relaxed">
-          <h2 className="text-xl font-semibold text-white">Limitation of liability</h2>
-          <p>
-            The service is provided “as is.” To the fullest extent permitted by law, Daiyet is not
-            liable for indirect or incidental damages arising from use of the platform. Your remedies
-            are limited to discontinuing use and, where applicable, refunds per stated policies.
-          </p>
-        </section>
-
-        <section className="space-y-3 text-white/80 leading-relaxed">
-          <h2 className="text-xl font-semibold text-white">Contact</h2>
-          <p>
-            For questions about these terms, contact support@daiyet.com. We will respond within a
-            reasonable timeframe.
+        <section className="rounded-2xl border border-white/10 bg-white/5 px-5 md:px-8 py-6 md:py-7 space-y-3">
+          <h2 className="text-lg md:text-xl font-semibold text-white">Contact</h2>
+          <p className="text-white/80 leading-relaxed">
+            For questions about these terms, email{" "}
+            <a href="mailto:support@daiyet.com" className="text-amber-200 hover:text-amber-100">
+              support@daiyet.com
+            </a>
+            . We aim to respond within a reasonable timeframe.
           </p>
         </section>
       </div>
