@@ -38,7 +38,7 @@ const sections = [
   {
     title: "Liability",
     bullets: [
-      "Service is provided "as is" to the fullest extent permitted by law.",
+      'Service is provided "as is" to the fullest extent permitted by law.',
       "We are not liable for indirect or incidental damages from use of the platform.",
       "Your remedy is to stop using the service; refunds apply only per stated policies.",
     ],
