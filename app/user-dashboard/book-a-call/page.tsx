@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { UserDashboardSidebar } from "@/components/layout/user-dashboard-sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PaymentModal } from "@/components/user/payment-modal";
+import { PaymentSuccessModal } from "@/components/user/payment-success-modal";
 import { ChevronLeft, ChevronRight, Check, Calendar as CalendarIcon, Clock, Video, ExternalLink, X } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import dayjs from "dayjs";
 
 interface Dietician {
@@ -17,10 +21,10 @@ interface Dietician {
   description: string;
 }
 
-// Mock dieticians
+// Mock dieticians - updated to match the dietitian from session requests
 const mockDieticians: Dietician[] = [
   {
-    id: "1",
+    id: "diet-1", // Match the ID from session requests
     name: "Dr. Sarah Johnson",
     qualification: "Licensed Dietician, RD",
     profileImage: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop",
@@ -36,18 +40,35 @@ const mockDieticians: Dietician[] = [
 ];
 
 export default function BookACallPage() {
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1); // 5 is success screen
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const isPrefill = searchParams.get("prefill") === "true";
+  const isReschedule = searchParams.get("reschedule") === "true";
+  const prefillDietitianId = searchParams.get("dietitianId");
+  const prefillEventTypeId = searchParams.get("eventTypeId");
+  const prefillRequestId = searchParams.get("requestId");
+  const prefillMessage = searchParams.get("message");
+
+  // Skip to step 3 (date/time) if pre-filled from consultation request (dietitian already selected)
+  // Skip to step 3 if reschedule (all fields pre-filled, just need new date/time)
+  const initialStep = isPrefill && prefillDietitianId ? 3 : isReschedule ? 3 : 1;
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(initialStep); // 5 is success screen
   const [formData, setFormData] = useState({
-    name: "John Doe",
-    email: "john@example.com",
+    name: "",
+    email: "",
     notes: "",
   });
-  const [selectedDietician, setSelectedDietician] = useState<string>("");
+  const [selectedDietician, setSelectedDietician] = useState<string>(prefillDietitianId || "");
   const [viewingProfile, setViewingProfile] = useState<Dietician | null>(null);
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [bookingDetails, setBookingDetails] = useState<any>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [paymentData, setPaymentData] = useState<any>(null);
+  const [eventTypePrice, setEventTypePrice] = useState<number>(15000);
+  const [dietitianName, setDietitianName] = useState<string>("");
 
   // Mock available dates (dates with dark grey background)
   const availableDates = ["12", "15", "17", "22", "29", "31"];
@@ -110,12 +131,200 @@ export default function BookACallPage() {
     }
   };
 
+  // Load user data and event type details when pre-filling
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (isPrefill) {
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          if (session?.user) {
+            const name =
+              session.user.user_metadata?.name ||
+              session.user.user_metadata?.full_name ||
+              "";
+            const email = session.user.email || "";
+
+            setFormData({
+              name,
+              email,
+              notes: prefillMessage ? decodeURIComponent(prefillMessage) : "",
+            });
+          }
+
+          // Fetch event type price if eventTypeId is provided
+          if (prefillEventTypeId && !isReschedule) {
+            try {
+              const response = await fetch(`/api/event-types/${prefillEventTypeId}`);
+              if (response.ok) {
+                const data = await response.json();
+                if (data.eventType?.price) {
+                  setEventTypePrice(data.eventType.price);
+                }
+              }
+            } catch (err) {
+              console.error("Error fetching event type:", err);
+            }
+          }
+
+          // Fetch dietitian information if dietitianId is provided
+          if (prefillDietitianId) {
+            let foundName = false;
+            
+            // First, try to get from session request if requestId is available
+            if (prefillRequestId) {
+              try {
+                const requestResponse = await fetch(`/api/user/session-requests`);
+                if (requestResponse.ok) {
+                  const requestData = await requestResponse.json();
+                  const matchingRequest = requestData.requests?.find(
+                    (req: any) => req.id === prefillRequestId
+                  );
+                  if (matchingRequest?.dietitian?.name) {
+                    setDietitianName(matchingRequest.dietitian.name);
+                    foundName = true;
+                  }
+                }
+              } catch (err) {
+                console.error("Error fetching from session requests:", err);
+              }
+            }
+
+            // Fallback: fetch directly from dietitian API if we didn't get it from session request
+            if (!foundName) {
+              try {
+                const response = await fetch(`/api/user/dietitian/${prefillDietitianId}`);
+                if (response.ok) {
+                  const data = await response.json();
+                  if (data.dietitian?.name) {
+                    setDietitianName(data.dietitian.name);
+                    foundName = true;
+                  }
+                }
+              } catch (err) {
+                console.error("Error fetching dietitian:", err);
+              }
+            }
+
+            // Final fallback: try to find in mock data
+            if (!foundName) {
+              const mockDietitian = mockDieticians.find(d => d.id === prefillDietitianId);
+              if (mockDietitian) {
+                setDietitianName(mockDietitian.name);
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error loading user data:", err);
+        }
+      }
+    };
+
+    loadUserData();
+  }, [isPrefill, prefillMessage, prefillEventTypeId, isReschedule, prefillDietitianId]);
+
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(":");
     const hour = parseInt(hours);
     const ampm = hour >= 12 ? "pm" : "am";
     const hour12 = hour % 12 || 12;
     return `${hour12}:${minutes}${ampm}`;
+  };
+
+  const handleCheckoutClick = () => {
+    if (isReschedule) {
+      // For reschedule, skip payment and directly confirm
+      handleRescheduleConfirmation();
+    } else {
+      // For regular booking, open payment modal
+      setIsPaymentModalOpen(true);
+    }
+  };
+
+  const handleRescheduleConfirmation = async () => {
+    if (selectedDate && selectedTime && selectedDietician && prefillRequestId) {
+      try {
+        // Call API to update booking with new date/time
+        const response = await fetch(`/api/user/reschedule-booking/${prefillRequestId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            newDate: selectedDate.toISOString(),
+            newTime: selectedTime,
+          }),
+        });
+
+        if (response.ok) {
+          const dietician = mockDieticians.find((d) => d.id === selectedDietician);
+          setBookingDetails({
+            date: selectedDate,
+            time: selectedTime,
+            dietician: dietician?.name || "",
+            duration: "45m",
+            meetingLink: "https://meet.google.com/abc-defg-hij",
+            isReschedule: true,
+          });
+          setStep(5);
+        }
+      } catch (err) {
+        console.error("Error confirming reschedule:", err);
+      }
+    }
+  };
+
+  const handlePaymentSuccess = async (paymentData: any) => {
+    setIsPaymentModalOpen(false);
+    setPaymentData(paymentData);
+
+    if (selectedDate && selectedTime && selectedDietician) {
+      try {
+        // Create booking
+        const response = await fetch("/api/bookings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            dietitianId: selectedDietician,
+            eventTypeId: prefillEventTypeId,
+            startTime: new Date(`${dayjs(selectedDate).format("YYYY-MM-DD")}T${selectedTime}`).toISOString(),
+            notes: formData.notes,
+            sessionRequestId: prefillRequestId,
+            paymentData,
+          }),
+        });
+
+        if (response.ok) {
+          const dietician = mockDieticians.find((d) => d.id === selectedDietician);
+          const data = await response.json();
+          setBookingDetails({
+            id: data.booking?.id || `booking-${Date.now()}`,
+            date: selectedDate,
+            time: selectedTime,
+            dietician: dietician?.name || "",
+            duration: "45m",
+            meetingLink: "https://meet.google.com/abc-defg-hij",
+          });
+          setIsSuccessModalOpen(true);
+          
+          // Update session request status
+          if (prefillRequestId) {
+            console.log(`Session request ${prefillRequestId} approved and booking created`);
+          }
+        }
+      } catch (err) {
+        console.error("Error creating booking:", err);
+      }
+    }
+  };
+
+  const handleSuccessModalClose = () => {
+    setIsSuccessModalOpen(false);
+    router.push("/user-dashboard/upcoming-meetings");
   };
 
   return (
@@ -128,26 +337,34 @@ export default function BookACallPage() {
           {step < 5 && (
             <div className="border-b border-[#262626] px-8 py-4">
               <div className="flex items-center gap-2">
-                {[1, 2, 3, 4].map((s) => (
-                  <div key={s} className="flex items-center">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                        step >= s
-                          ? "bg-white text-black"
-                          : "bg-[#262626] text-[#9ca3af]"
-                      }`}
-                    >
-                      {s}
-                    </div>
-                    {s < 4 && (
+                {[1, 2, 3, 4].map((s) => {
+                  // Hide step 2 (dietitian selection) if pre-filled from consultation request
+                  if (s === 2 && isPrefill && prefillDietitianId && !isReschedule) {
+                    return null;
+                  }
+                  return (
+                    <div key={s} className="flex items-center">
                       <div
-                        className={`w-12 h-0.5 ${
-                          step > s ? "bg-white" : "bg-[#262626]"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                          step >= s || (s === 2 && isPrefill && prefillDietitianId)
+                            ? "bg-white text-black"
+                            : "bg-[#262626] text-[#9ca3af]"
                         }`}
-                      />
-                    )}
-                  </div>
-                ))}
+                      >
+                        {s}
+                      </div>
+                      {s < 4 && (
+                        <div
+                          className={`w-12 h-0.5 ${
+                            step > s || (s === 2 && isPrefill && prefillDietitianId)
+                              ? "bg-white"
+                              : "bg-[#262626]"
+                          }`}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -212,7 +429,8 @@ export default function BookACallPage() {
                           type="text"
                           value={formData.name}
                           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb]"
+                          disabled={isPrefill}
+                          className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -223,7 +441,8 @@ export default function BookACallPage() {
                           type="email"
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb]"
+                          disabled={isPrefill}
+                          className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -248,12 +467,22 @@ export default function BookACallPage() {
                       </div>
                     </div>
                     <div className="flex gap-3 mt-6">
-                      <Button
-                        onClick={() => setStep(2)}
-                        className="bg-white hover:bg-gray-100 text-black px-6 py-2"
-                      >
-                        Continue
-                      </Button>
+                      {isPrefill && prefillDietitianId ? (
+                        // Skip to step 3 if dietitian is already pre-selected
+                        <Button
+                          onClick={() => setStep(3)}
+                          className="bg-white hover:bg-gray-100 text-black px-6 py-2"
+                        >
+                          Continue
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => setStep(2)}
+                          className="bg-white hover:bg-gray-100 text-black px-6 py-2"
+                        >
+                          Continue
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -261,8 +490,8 @@ export default function BookACallPage() {
             </div>
           )}
 
-          {/* Step 2 - Two Columns */}
-          {step === 2 && (
+          {/* Step 2 - Two Columns - Skip if pre-filled from consultation request */}
+          {step === 2 && !(isPrefill && prefillDietitianId) && (
             <div className="flex justify-center p-8">
               <div className="w-full max-w-5xl grid grid-cols-2 divide-x divide-[#262626]">
                 {/* Left Pane - Service Information */}
@@ -315,15 +544,18 @@ export default function BookACallPage() {
                     <div className="space-y-4">
                       {mockDieticians.map((dietician) => {
                         const isSelected = selectedDietician === dietician.id;
+                        const isDisabled = isPrefill && isReschedule;
                         return (
                           <div
                             key={dietician.id}
-                            className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                              isSelected
-                                ? "border-white bg-[#171717] ring-1 ring-white/30"
-                                : "border-[#262626] bg-transparent hover:bg-[#171717]"
+                            className={`border rounded-lg p-4 transition-all ${
+                              isDisabled
+                                ? "opacity-50 cursor-not-allowed border-[#262626] bg-transparent"
+                                : isSelected
+                                ? "border-white bg-[#171717] ring-1 ring-white/30 cursor-pointer"
+                                : "border-[#262626] bg-transparent hover:bg-[#171717] cursor-pointer"
                             }`}
-                            onClick={() => setSelectedDietician(dietician.id)}
+                            onClick={() => !isDisabled && setSelectedDietician(dietician.id)}
                           >
                             <div className="flex items-start gap-4">
                               {/* Profile Image */}
@@ -379,20 +611,27 @@ export default function BookACallPage() {
                       })}
                     </div>
                     <div className="flex gap-3 mt-6">
-                      <Button
-                        onClick={() => setStep(1)}
-                        variant="outline"
-                        className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-6 py-2"
-                      >
-                        Back
-                      </Button>
-                      <Button
-                        onClick={() => setStep(3)}
-                        disabled={!selectedDietician}
-                        className="bg-white hover:bg-gray-100 text-black px-6 py-2 disabled:opacity-50"
-                      >
-                        Continue
-                      </Button>
+                      {isPrefill && prefillDietitianId ? (
+                        // If pre-filled from request, skip dietitian selection (already on step 3)
+                        null
+                      ) : (
+                        <>
+                          <Button
+                            onClick={() => setStep(1)}
+                            variant="outline"
+                            className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-6 py-2"
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            onClick={() => setStep(3)}
+                            disabled={!selectedDietician}
+                            className="bg-white hover:bg-gray-100 text-black px-6 py-2 disabled:opacity-50"
+                          >
+                            Continue
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -446,13 +685,24 @@ export default function BookACallPage() {
                     </div>
                   </div>
                   <div className="flex gap-3 mt-6">
-                    <Button
-                      onClick={() => setStep(2)}
-                      variant="outline"
-                      className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-6 py-2"
-                    >
-                      Back
-                    </Button>
+                    {isPrefill && prefillDietitianId ? (
+                      // If pre-filled, back goes to step 1 (info), not step 2
+                      <Button
+                        onClick={() => setStep(1)}
+                        variant="outline"
+                        className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-6 py-2"
+                      >
+                        Back
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => setStep(2)}
+                        variant="outline"
+                        className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-6 py-2"
+                      >
+                        Back
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -519,6 +769,20 @@ export default function BookACallPage() {
                   </div>
                     <div className="flex gap-3 mt-6">
                       <Button
+                        onClick={() => {
+                          if (isPrefill && prefillDietitianId) {
+                            // Skip dietitian selection, go back to step 1
+                            setStep(1);
+                          } else {
+                            setStep(2);
+                          }
+                        }}
+                        variant="outline"
+                        className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-6 py-2"
+                      >
+                        Back
+                      </Button>
+                      <Button
                         onClick={() => setStep(4)}
                         disabled={!selectedDate || !selectedTime}
                         className="bg-white hover:bg-gray-100 text-black px-6 py-2 disabled:opacity-50"
@@ -582,7 +846,7 @@ export default function BookACallPage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-[#9ca3af]">Dietician</span>
                       <span className="text-[#f9fafb]">
-                        {mockDieticians.find(d => d.id === selectedDietician)?.name}
+                        {dietitianName || mockDieticians.find(d => d.id === selectedDietician)?.name || "Not selected"}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
@@ -602,7 +866,7 @@ export default function BookACallPage() {
                     <div className="border-t border-[#262626] pt-3 mt-3">
                       <div className="flex justify-between">
                         <span className="text-sm font-medium text-[#f9fafb]">Total</span>
-                        <span className="text-lg font-semibold text-[#f9fafb]">₦5,000</span>
+                        <span className="text-lg font-semibold text-[#f9fafb]">₦{eventTypePrice.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
@@ -615,10 +879,10 @@ export default function BookACallPage() {
                       Back
                     </Button>
                     <Button
-                      onClick={handleCheckout}
+                      onClick={handleCheckoutClick}
                       className="bg-white hover:bg-gray-100 text-black px-6 py-2"
                     >
-                      Proceed to Payment
+                      {isReschedule ? "Confirm Reschedule" : "Proceed to Payment"}
                     </Button>
                   </div>
                 </div>
@@ -724,6 +988,34 @@ export default function BookACallPage() {
           )}
         </div>
       </main>
+
+      {/* Payment Modal */}
+      {!isReschedule && (
+        <PaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          onSuccess={handlePaymentSuccess}
+          amount={eventTypePrice}
+          currency="NGN"
+          description={selectedDietician && mockDieticians.find(d => d.id === selectedDietician) 
+            ? `Consultation with ${mockDieticians.find(d => d.id === selectedDietician)?.name}`
+            : "Consultation Booking"}
+          requestType="CONSULTATION"
+        />
+      )}
+
+      {/* Payment Success Modal */}
+      <PaymentSuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={handleSuccessModalClose}
+        requestType="CONSULTATION"
+        amount={paymentData?.amount || 15000}
+        currency={paymentData?.currency || "NGN"}
+        onViewDetails={() => {
+          setIsSuccessModalOpen(false);
+          router.push("/user-dashboard/upcoming-meetings");
+        }}
+      />
 
       {/* View Profile Modal */}
       {viewingProfile && (
