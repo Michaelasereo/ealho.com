@@ -45,13 +45,10 @@ export const supabase = {
   get functions() {
     return getSupabaseInstance().functions;
   },
-  get rest() {
-    return getSupabaseInstance().rest;
-  },
   get realtime() {
     return getSupabaseInstance().realtime;
   },
-} as ReturnType<typeof createBrowserClient>;
+} as unknown as ReturnType<typeof createBrowserClient>;
 
 // Server-side client with service role (for admin operations)
 // NOTE: This should only be used in server-side code (API routes, server components)
@@ -96,13 +93,10 @@ export const supabaseAdmin = {
   get functions() {
     return getSupabaseAdminInstance().functions;
   },
-  get rest() {
-    return getSupabaseAdminInstance().rest;
-  },
   get realtime() {
     return getSupabaseAdminInstance().realtime;
   },
-} as ReturnType<typeof createAdminClient>;
+} as unknown as ReturnType<typeof createAdminClient>;
 
 // Re-export new client factories for convenience
 export { createBrowserClient, createComponentClient, createAdminClient } from "./supabase/client";

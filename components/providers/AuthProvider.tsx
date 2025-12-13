@@ -12,7 +12,7 @@ export interface UserProfile {
 }
 
 type AuthContextType = {
-  supabase: ReturnType<typeof createBrowserClient>;
+  supabase: ReturnType<typeof createBrowserClient> | null;
   user: User | null;
   role: UserRole | null;
   profile: UserProfile | null;

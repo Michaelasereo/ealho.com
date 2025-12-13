@@ -24,7 +24,7 @@ interface BookingCardProps {
   startTime: Date;
   endTime: Date;
   title: string;
-  description: string;
+  description?: string;
   message?: string;
   participants: string[];
   meetingLink?: string;

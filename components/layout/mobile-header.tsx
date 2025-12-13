@@ -67,7 +67,7 @@ export function MobileHeader({ onMenuClick, title = "Cal.com" }: MobileHeaderPro
             ) : (
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#404040] to-[#525252] flex items-center justify-center border-2 border-[#374151]">
                 <span className="text-white text-xs font-semibold">
-                  {profile ? getInitials(profile.name) : "D"}
+                  {profile?.name ? getInitials(profile.name) : "D"}
                 </span>
               </div>
             )}
@@ -141,7 +141,7 @@ export function UserMobileHeader({ onMenuClick }: { onMenuClick?: () => void }) 
             ) : (
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#404040] to-[#525252] flex items-center justify-center border-2 border-[#374151]">
                 <span className="text-white text-xs font-semibold">
-                  {profile ? getInitials(profile.name) : "U"}
+                  {profile?.name ? getInitials(profile.name) : "U"}
                 </span>
               </div>
             )}

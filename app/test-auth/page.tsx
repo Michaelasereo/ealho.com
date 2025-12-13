@@ -504,13 +504,13 @@ export default function TestAuthPage() {
                     // Refresh the debug info after running debugAuth
                     const { data: { session: s }, error: sErr } = await supabase.auth.getSession();
                     const { data: { user: u }, error: uErr } = await supabase.auth.getUser();
-                    setDebugInfo(prev => ({
+                    setDebugInfo(prev => prev ? {
                       ...prev,
                       session: s || null,
                       user: u || null,
                       sessionError: sErr?.message || null,
                       userError: uErr?.message || null,
-                    }))
+                    } : null)
                   }
                 }}
                 variant="outline"

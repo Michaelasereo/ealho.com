@@ -358,7 +358,7 @@ export default function UserDashboardPage() {
       </main>
 
       {/* Payment Modal */}
-      {selectedRequest && (
+      {selectedRequest && (selectedRequest.requestType === "CONSULTATION" || selectedRequest.requestType === "MEAL_PLAN") && (
         <PaymentModal
           isOpen={isPaymentModalOpen}
           onClose={() => {
@@ -375,7 +375,7 @@ export default function UserDashboardPage() {
                 : "Meal Plan"
               : selectedRequest.eventType?.title || "Consultation"
           }
-          requestType={selectedRequest.requestType}
+          requestType={selectedRequest.requestType as "CONSULTATION" | "MEAL_PLAN"}
           requestId={selectedRequest.id}
           userEmail={selectedRequest.clientEmail}
           userName={selectedRequest.clientName}
@@ -383,11 +383,11 @@ export default function UserDashboardPage() {
       )}
 
       {/* Payment Success Modal */}
-      {selectedRequest && (
+      {selectedRequest && (selectedRequest.requestType === "CONSULTATION" || selectedRequest.requestType === "MEAL_PLAN") && (
         <PaymentSuccessModal
           isOpen={isSuccessModalOpen}
           onClose={handleSuccessModalClose}
-          requestType={selectedRequest.requestType}
+          requestType={selectedRequest.requestType as "CONSULTATION" | "MEAL_PLAN"}
           amount={paymentData?.amount || selectedRequest.price || 0}
           currency={paymentData?.currency || selectedRequest.currency || "NGN"}
           onViewDetails={

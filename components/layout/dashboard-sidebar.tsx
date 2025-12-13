@@ -254,7 +254,7 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
             ) : (
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#404040] to-[#525252] flex items-center justify-center">
                 <span className="text-white text-xs font-semibold">
-                  {userProfile ? getInitials(userProfile.name) : "D"}
+                  {userProfile?.name ? getInitials(userProfile.name) : "D"}
                 </span>
             </div>
             )}

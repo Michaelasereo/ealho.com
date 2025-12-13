@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClientServer } from "@/lib/supabase/server";
 import { getCurrentUserFromRequest } from "@/lib/auth-helpers";
+import { formatDietitianName } from "@/lib/utils/dietitian-name";
 
 // GET: List all active dietitians
 export async function GET(request: NextRequest) {
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     // Format the response
     const formattedDietitians = (dietitians || []).map((dietitian: any) => ({
       id: dietitian.id,
-      name: dietitian.name || "Dietitian",
+      name: formatDietitianName(dietitian.name),
       email: dietitian.email,
       bio: dietitian.bio || "",
       image: dietitian.image,

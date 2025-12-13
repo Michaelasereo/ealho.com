@@ -131,8 +131,8 @@ export function CreateSessionRequestModal({
       }
 
       if (requestType === "CONSULTATION") {
-        if (!eventTypeId || !requestedDate || !requestedTime) {
-          setError("Event type, date, and time are required for consultation requests");
+        if (!eventTypeId) {
+          setError("Event type is required for consultation requests");
           setIsSubmitting(false);
           return;
         }
@@ -153,9 +153,6 @@ export function CreateSessionRequestModal({
 
       if (requestType === "CONSULTATION") {
         requestData.eventTypeId = eventTypeId;
-        // Combine date and time into ISO string
-        const dateTime = new Date(`${requestedDate}T${requestedTime}`);
-        requestData.requestedDate = dateTime.toISOString();
       } else {
         requestData.mealPlanType = mealPlanType;
         const selectedMealPlan = MEAL_PLAN_TYPES.find(mp => mp.id === mealPlanType);

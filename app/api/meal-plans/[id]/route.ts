@@ -48,12 +48,13 @@ export async function GET(
       );
     }
 
+    const user = Array.isArray(mealPlan.users) ? mealPlan.users[0] : mealPlan.users;
     const formattedMealPlan = {
       id: mealPlan.id,
       sessionRequestId: mealPlan.session_request_id,
       userId: mealPlan.user_id,
-      userName: mealPlan.users?.name || "Unknown",
-      userEmail: mealPlan.users?.email || "Unknown",
+      userName: user?.name || "Unknown",
+      userEmail: user?.email || "Unknown",
       packageName: mealPlan.package_name,
       fileUrl: mealPlan.file_url,
       fileName: mealPlan.file_name,
@@ -99,7 +100,7 @@ export async function PUT(
     // Verify ownership
     const { data: existing } = await supabaseAdmin
       .from("meal_plans")
-      .select("id")
+      .select("id, sent_at")
       .eq("id", id)
       .eq("dietitian_id", dietitianId)
       .single();
@@ -155,12 +156,13 @@ export async function PUT(
       );
     }
 
+    const user = Array.isArray(mealPlan.users) ? mealPlan.users[0] : mealPlan.users;
     const formattedMealPlan = {
       id: mealPlan.id,
       sessionRequestId: mealPlan.session_request_id,
       userId: mealPlan.user_id,
-      userName: mealPlan.users?.name || "Unknown",
-      userEmail: mealPlan.users?.email || "Unknown",
+      userName: user?.name || "Unknown",
+      userEmail: user?.email || "Unknown",
       packageName: mealPlan.package_name,
       fileUrl: mealPlan.file_url,
       fileName: mealPlan.file_name,
@@ -171,14 +173,14 @@ export async function PUT(
     };
 
     // Send email when meal plan is sent
-    if (status === "SENT" && mealPlan.users?.email) {
+    if (status === "SENT" && user?.email) {
       try {
         await emailQueue.enqueue({
-          to: mealPlan.users.email,
+          to: user.email,
           subject: `Your ${mealPlan.package_name} is Ready!`,
           template: "session_request",
           data: {
-            userName: mealPlan.users.name || "User",
+            userName: user.name || "User",
             requestType: "meal plan",
             message: `Your ${mealPlan.package_name} has been sent and is ready for download.`,
             actionRequired: true,

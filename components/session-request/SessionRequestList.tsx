@@ -6,9 +6,9 @@ import relativeTime from "dayjs/plugin/relativeTime";
 
 dayjs.extend(relativeTime);
 
-interface SessionRequest {
+export interface SessionRequest {
   id: string;
-  requestType: "CONSULTATION" | "MEAL_PLAN";
+  requestType: "CONSULTATION" | "MEAL_PLAN" | "RESCHEDULE_REQUEST";
   clientName: string;
   clientEmail: string;
   message?: string;

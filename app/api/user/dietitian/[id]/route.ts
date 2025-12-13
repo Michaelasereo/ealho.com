@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClientServer } from "@/lib/supabase/server";
+import { formatDietitianName } from "@/lib/utils/dietitian-name";
 
 // GET: Fetch dietitian information by ID
 export async function GET(
@@ -38,7 +39,7 @@ export async function GET(
     return NextResponse.json({
       dietitian: {
         id: user.id,
-        name: user.name,
+        name: formatDietitianName(user.name),
         email: user.email,
         image: user.image,
         role: user.role,

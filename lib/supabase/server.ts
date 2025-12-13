@@ -23,7 +23,7 @@ export async function createServerComponentClient() {
       autoRefreshToken: true,
       persistSession: false,
     },
-  });
+  } as any);
 }
 
 // Route handler client factory
@@ -75,7 +75,7 @@ export function createRouteHandlerClientFromRequest(cookieHeader: string) {
       autoRefreshToken: true,
       persistSession: false,
     },
-  });
+  } as any);
 }
 
 // Middleware client factory
@@ -94,7 +94,7 @@ export function createMiddlewareClient(cookieHeader: string) {
       autoRefreshToken: true,
       persistSession: false,
     },
-  });
+  } as any);
 }
 
 // Admin client factory (server-side)

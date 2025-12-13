@@ -106,7 +106,6 @@ export async function POST(request: NextRequest) {
         if (uploadError) {
           console.warn("Profile picture upload failed (continuing without image):", {
             error: uploadError.message,
-            code: uploadError.statusCode,
           });
         } else if (uploadData) {
           const { data: urlData } = supabaseAdmin.storage.from("profiles").getPublicUrl(fileName);

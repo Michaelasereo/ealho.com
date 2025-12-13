@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 import { supabaseAdmin } from "@/lib/supabase";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -7,16 +7,15 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 export async function GET(request: NextRequest) {
   try {
-    // Get auth token from cookies
-    const cookieHeader = request.headers.get("cookie") || "";
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    // Create Supabase client with cookie handling
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
-        get(name: string) {
-          const match = cookieHeader.match(new RegExp(`(^| )${name}=([^;]+)`));
-          return match ? decodeURIComponent(match[2]) : null;
+        getAll() {
+          return request.cookies.getAll();
         },
-        set() {},
-        remove() {},
+        setAll(cookiesToSet) {
+          // Cookies are set via response headers
+        },
       },
     });
 
@@ -26,7 +25,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { 
           error: "Not authenticated",
-          authError: authError?.message 
+          authError: authError ? String(authError) : undefined
         },
         { status: 401 }
       );
@@ -48,7 +47,7 @@ export async function GET(request: NextRequest) {
       },
       dbUser: userData,
       errors: {
-        auth: authError?.message,
+        auth: authError ? String(authError) : undefined,
         db: userError?.message,
       },
       role: userData?.role || "NOT_FOUND",

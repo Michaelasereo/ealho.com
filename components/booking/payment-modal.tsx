@@ -25,6 +25,7 @@ declare global {
         ref: string;
         onClose: () => void;
         callback: (response: { reference: string }) => void;
+        metadata?: Record<string, any>;
       }) => {
         openIframe: () => void;
       };

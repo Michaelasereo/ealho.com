@@ -4,6 +4,7 @@ import { Calendar, FileText, Clock, CheckCircle, XCircle, MessageSquare } from "
 import { Button } from "@/components/ui/button";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { formatDietitianName } from "@/lib/utils/dietitian-name";
 
 dayjs.extend(relativeTime);
 
@@ -94,7 +95,7 @@ export function SessionRequestCard({ request, onApprove, onReject }: SessionRequ
             {getRequestIcon()}
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-[#f9fafb]">
-                {request.dietitian.name}
+                {formatDietitianName(request.dietitian.name)}
               </span>
               <span className={`text-xs px-2 py-0.5 rounded border ${getRequestTypeColor()}`}>
                 {getRequestTypeLabel()}

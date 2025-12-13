@@ -24,7 +24,7 @@ export function useOptimizedAvailability({
   const [error, setError] = useState<string | null>(null);
   
   // Smart polling state
-  const pollIntervalRef = useRef<NodeJS.Timeout>();
+  const pollIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFetchRef = useRef<number>(0);
   const consecutiveErrorsRef = useRef<number>(0);
   const isTabVisibleRef = useRef<boolean>(true);
@@ -139,7 +139,9 @@ export function useOptimizedAvailability({
       }
       
       // Schedule next poll with dynamic interval
-      clearTimeout(pollIntervalRef.current);
+      if (pollIntervalRef.current) {
+        clearTimeout(pollIntervalRef.current);
+      }
       pollIntervalRef.current = setTimeout(poll, getNextPollInterval());
     };
 
@@ -148,7 +150,9 @@ export function useOptimizedAvailability({
     pollIntervalRef.current = setTimeout(poll, getNextPollInterval());
 
     return () => {
-      clearTimeout(pollIntervalRef.current);
+      if (pollIntervalRef.current) {
+        clearTimeout(pollIntervalRef.current);
+      }
     };
   }, [dietitianId, eventTypeId, startDate, endDate, enabled, fetchAvailability, getNextPollInterval]);
 

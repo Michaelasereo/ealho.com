@@ -2,29 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
-import { SessionRequestList } from "@/components/session-request/SessionRequestList";
+import { SessionRequestList, type SessionRequest } from "@/components/session-request/SessionRequestList";
 import { CreateSessionRequestModal } from "@/components/session-request/CreateSessionRequestModal";
 import { Button } from "@/components/ui/button";
 import { Plus, Wifi, WifiOff } from "lucide-react";
 import { useSessionRequestsStream } from "@/hooks/useSessionRequestsStream";
-
-interface SessionRequest {
-  id: string;
-  requestType: "CONSULTATION" | "MEAL_PLAN";
-  clientName: string;
-  clientEmail: string;
-  message?: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  eventType?: {
-    id: string;
-    title: string;
-  };
-  mealPlanType?: string;
-  price?: number;
-  currency?: string;
-  requestedDate?: string;
-  createdAt: string;
-}
 
 export default function SessionRequestClient() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);

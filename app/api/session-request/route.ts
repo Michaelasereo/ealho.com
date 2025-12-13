@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClientServer } from "@/lib/supabase/server";
 import { requireDietitianFromRequest } from "@/lib/auth-helpers";
 import { emailQueue } from "@/lib/email/queue";
+import { formatDietitianName } from "@/lib/utils/dietitian-name";
 
 // GET: Fetch session requests for the dietitian
 export async function GET(request: NextRequest) {
@@ -345,13 +346,14 @@ export async function POST(request: NextRequest) {
     };
 
     if (newRequest.request_type === "CONSULTATION" && newRequest.event_types) {
+      const eventType = Array.isArray(newRequest.event_types) ? newRequest.event_types[0] : newRequest.event_types;
       formattedRequest.eventType = {
-        id: newRequest.event_types.id,
-        title: newRequest.event_types.title,
+        id: eventType?.id,
+        title: eventType?.title,
       };
-      formattedRequest.price = newRequest.event_types.price;
-      formattedRequest.currency = newRequest.event_types.currency;
-      formattedRequest.duration = newRequest.event_types.length;
+      formattedRequest.price = eventType?.price;
+      formattedRequest.currency = eventType?.currency;
+      formattedRequest.duration = eventType?.length;
     } else if (newRequest.request_type === "MEAL_PLAN") {
       formattedRequest.mealPlanType = newRequest.meal_plan_type;
       formattedRequest.price = newRequest.price;
@@ -368,8 +370,8 @@ export async function POST(request: NextRequest) {
       await emailQueue.enqueue({
         to: clientEmail,
         subject: requestType === "MEAL_PLAN" 
-          ? `New Meal Plan Request from ${dietitian.name || "Your Dietitian"}`
-          : `New Consultation Request from ${dietitian.name || "Your Dietitian"}`,
+          ? `New Meal Plan Request from ${formatDietitianName(dietitian.name)}`
+          : `New Consultation Request from ${formatDietitianName(dietitian.name)}`,
         template: "session_request",
         data: {
           userName: clientName,

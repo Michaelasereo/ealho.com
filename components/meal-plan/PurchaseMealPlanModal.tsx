@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, X } from "lucide-react";
+import { formatDietitianName } from "@/lib/utils/dietitian-name";
 
 interface Dietician {
   id: string;
@@ -111,7 +112,7 @@ export function PurchaseMealPlanModal({
                 <option value="">Select a dietician...</option>
                 {mockDieticians.map((dietician) => (
                   <option key={dietician.id} value={dietician.id}>
-                    {dietician.name} ({dietician.email})
+                    {formatDietitianName(dietician.name)} ({dietician.email})
                   </option>
                 ))}
               </select>

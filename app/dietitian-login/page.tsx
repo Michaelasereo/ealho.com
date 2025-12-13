@@ -1,9 +1,10 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 
-export default function DietitianLoginPage() {
+function DietitianLoginContent() {
   const searchParams = useSearchParams();
   
   // Get redirect path from query params (callbackUrl from middleware or redirect param)
@@ -20,5 +21,19 @@ export default function DietitianLoginPage() {
       redirectPath={redirectPath}
       source="dietitian-login"
     />
+  );
+}
+
+export default function DietitianLoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0b0b0b] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </div>
+    }>
+      <DietitianLoginContent />
+    </Suspense>
   );
 }

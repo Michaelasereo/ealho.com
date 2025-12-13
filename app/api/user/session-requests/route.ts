@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClientServer } from "@/lib/supabase/server";
 import { requireAuthFromRequest } from "@/lib/auth-helpers";
+import { formatDietitianName } from "@/lib/utils/dietitian-name";
 
 // GET: Fetch pending session requests for the authenticated user
 export async function GET(request: NextRequest) {
@@ -119,7 +120,7 @@ export async function GET(request: NextRequest) {
       if (req.dietitian) {
         request.dietitian = {
           id: req.dietitian.id,
-          name: req.dietitian.name || "Unknown",
+          name: formatDietitianName(req.dietitian.name),
           email: req.dietitian.email,
         };
       }

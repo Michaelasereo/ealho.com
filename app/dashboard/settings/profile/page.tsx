@@ -5,99 +5,66 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, X, Bold, Italic, Link as LinkIcon } from "lucide-react";
+import { Upload, Bold, Italic, Link as LinkIcon } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { createBrowserClient } from "@/lib/supabase/client";
+import { dietitianService } from "@/lib/dietitian-service";
+import { DietitianProfile } from "@/types";
+import { setupRealtimeUpdates } from "@/lib/realtime-updates";
 
 export default function ProfilePage() {
-  const { user, profile } = useAuth();
-  const [username, setUsername] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [about, setAbout] = useState("");
-  const [userProfile, setUserProfile] = useState<{ name: string; image: string | null; bio: string | null } | null>(null);
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<DietitianProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Fetch profile on mount
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      // Set email immediately from authenticated user (critical - must be set first)
-      if (user.email) {
-        setEmail(user.email);
-      }
-
+    const loadProfile = async () => {
+      if (!user) return;
+      
+      setLoading(true);
       try {
-        const supabase = createBrowserClient();
-        
-        // Fetch user data from database
-        const { data: dbUser, error } = await supabase
-          .from("users")
-          .select("name, email, image, bio")
-          .eq("id", user.id)
-          .single();
-
-        if (error) {
-          console.error("Error fetching user profile:", error);
-          // Fallback to auth user data
-          setUserProfile({
-            name: user.user_metadata?.name || user.user_metadata?.full_name || profile?.name || "Dietitian",
-            image: profile?.image || user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
-            bio: null,
-          });
-          const fallbackName = user.user_metadata?.name || user.user_metadata?.full_name || profile?.name || "Dietitian";
-          setFullName(fallbackName);
-          setEmail(user.email || "");
-          setAbout("");
-          // Set username from fallback name
-          if (fallbackName && fallbackName !== "Dietitian") {
-            setUsername(nameToSlug(fallbackName));
-          }
-        } else if (dbUser) {
-          // Use database data (preferred for dietitians)
-          const dietitianName = dbUser.name || profile?.name || "Dietitian";
-          const dietitianEmail = dbUser.email || user.email || "";
-          setUserProfile({
-            name: dietitianName,
-            image: dbUser.image || profile?.image || null,
-            bio: dbUser.bio || null,
-          });
-          setFullName(dietitianName);
-          setEmail(dietitianEmail);
-          setAbout(dbUser.bio || "");
-          // Set username to dietitian-name-slug
-          if (dietitianName && dietitianName !== "Dietitian") {
-            setUsername(nameToSlug(dietitianName));
-          }
-        }
+        // SINGLE SERVICE CALL - gets everything
+        const data = await dietitianService.getDietitianProfile(user.id);
+        setProfile(data);
       } catch (error) {
-        console.error("Error fetching user profile:", error);
-        // Fallback to profile from context
-        setUserProfile({
-          name: profile?.name || "Dietitian",
-          image: profile?.image || null,
-          bio: null,
-        });
-        const errorFallbackName = profile?.name || "Dietitian";
-        setFullName(errorFallbackName);
-        setEmail(user?.email || "");
-        setAbout("");
-        // Set username from error fallback name
-        if (errorFallbackName && errorFallbackName !== "Dietitian") {
-          setUsername(nameToSlug(errorFallbackName));
-        }
+        console.error('Failed to load profile:', error);
+        setSaveError('Failed to load profile. Please refresh the page.');
       } finally {
         setLoading(false);
       }
     };
+    
+    loadProfile();
+  }, [user]);
 
-    fetchUserProfile();
-  }, [user, profile]);
+  // Setup real-time updates
+  useEffect(() => {
+    if (!user) return;
+    
+    const unsubscribe = setupRealtimeUpdates(user.id, () => {
+      // Refresh profile when real-time update is received
+      dietitianService.getDietitianProfile(user.id, true).then(setProfile).catch(console.error);
+    });
+    
+    return unsubscribe;
+  }, [user]);
+
+  // Convert name to URL-friendly slug
+  const nameToSlug = (name: string): string => {
+    if (!name) return "";
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  };
 
   const getInitials = (name: string) => {
+    if (!name) return "D";
     return name
       .split(" ")
       .map((n) => n[0])
@@ -106,46 +73,61 @@ export default function ProfilePage() {
       .slice(0, 2);
   };
 
-  // Convert name to URL-friendly slug
-  const nameToSlug = (name: string): string => {
-    return name
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, '') // Remove special characters
-      .replace(/\s+/g, '-')      // Replace spaces with hyphens
-      .replace(/-+/g, '-');      // Replace multiple hyphens with single
+  // Handle bio update
+  const handleSaveBio = async () => {
+    if (!user || !profile) {
+      console.error('Cannot save: missing user or profile', { hasUser: !!user, hasProfile: !!profile });
+      return;
+    }
+    
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    
+    try {
+      console.log('Saving bio:', { userId: user.id, bioLength: profile.bio?.length || 0 });
+      
+      const result = await dietitianService.updateProfile(user.id, { bio: profile.bio ?? undefined });
+      
+      // Update local state with the saved bio (optimistic update)
+      if (result.data) {
+        setProfile(prev => prev ? { 
+          ...prev, 
+          bio: result.data.bio,
+          updatedAt: result.data.updated_at 
+        } : null);
+      }
+      
+      setSaveSuccess(true);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Failed to save bio:', error);
+      const errorMessage = error?.message || error?.details || 'Unknown error';
+      setSaveError(`Failed to save professional summary: ${errorMessage}. Please try again.`);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Initialize form fields from context immediately (while loading additional data)
-  useEffect(() => {
-    if (profile?.name && !fullName) {
-      const name = profile.name;
-      setFullName(name);
-      if (!userProfile) {
-        setUserProfile({
-          name: name,
-          image: profile.image,
-          bio: null,
-        });
-      }
-      // Set username from profile name (slug version)
-      if (!username || username === "") {
-        setUsername(nameToSlug(name));
-      }
-    }
-    // Set email from user immediately if available and email is empty
-    if (user?.email && !email) {
-      setEmail(user.email);
-    }
-  }, [profile, user, fullName, email, userProfile, username]);
-
-  if (loading && !userProfile) {
+  // Show loading only if we're actually loading and don't have profile data yet
+  if (loading) {
+    console.log("[DEBUG] Rendering loading screen");
     return (
       <div className="p-8">
         <div className="text-white">Loading profile...</div>
+        <div className="text-xs text-gray-400 mt-2">If this persists, check browser console for errors.</div>
+        <div className="text-xs text-gray-500 mt-1">Check browser console for [DEBUG] messages.</div>
       </div>
     );
   }
+
+  console.log("[DEBUG] Rendering profile form (loading is false)");
+  // If loading is false but no userProfile, still render the form with empty/default values
+  // This prevents infinite loading state
 
   return (
     <div>
@@ -164,11 +146,11 @@ export default function ProfilePage() {
             Profile Picture
           </label>
           <div className="flex items-center gap-4">
-            {userProfile?.image ? (
+            {profile?.image ? (
               <div className="w-16 h-16 rounded-full overflow-hidden">
                 <Image
-                  src={userProfile.image}
-                  alt={userProfile.name}
+                  src={profile.image}
+                  alt={profile?.name || 'Profile'}
                   width={64}
                   height={64}
                   className="w-full h-full object-cover"
@@ -177,7 +159,7 @@ export default function ProfilePage() {
             ) : (
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#404040] to-[#525252] flex items-center justify-center">
                 <span className="text-white text-lg font-semibold">
-                  {userProfile ? getInitials(userProfile.name) : "D"}
+                  {profile?.name ? getInitials(profile.name) : "D"}
                 </span>
             </div>
             )}
@@ -221,8 +203,8 @@ export default function ProfilePage() {
             </span>
             <Input
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={nameToSlug(profile?.name || '')}
+              onChange={() => {}}
               disabled
               className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] rounded-l-none rounded-r-md focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-[#404040] opacity-50 cursor-not-allowed"
             />
@@ -237,13 +219,13 @@ export default function ProfilePage() {
           <label className="block text-sm font-medium text-[#D4D4D4]">
             Full name
           </label>
-          <Input
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            disabled
-            className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-[#404040] opacity-50 cursor-not-allowed"
-          />
+            <Input
+              type="text"
+              value={profile?.name || ''}
+              onChange={() => {}}
+              disabled
+              className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-[#404040] opacity-50 cursor-not-allowed"
+            />
           <p className="text-xs text-[#9ca3af]">
             Name is fixed and cannot be edited
           </p>
@@ -257,8 +239,8 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2">
             <Input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={profile?.email || ''}
+              onChange={() => {}}
               disabled
               className="flex-1 bg-[#0a0a0a] border-[#262626] text-[#f9fafb] focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-[#404040] opacity-50 cursor-not-allowed"
             />
@@ -294,13 +276,41 @@ export default function ProfilePage() {
             </div>
             {/* Textarea */}
             <Textarea
-              value={about}
-              onChange={(e) => setAbout(e.target.value)}
+              value={profile?.bio || ''}
+              onChange={(e) => setProfile(prev => prev ? { ...prev, bio: e.target.value } : null)}
               className="bg-transparent border-0 text-[#f9fafb] resize-none focus:outline-none focus:ring-0 min-h-[120px]"
               placeholder="Tell us about yourself..."
             />
           </div>
+          
+          {/* Save Button and Messages */}
+          <div className="flex items-center gap-3 mt-3">
+            <Button
+              onClick={handleSaveBio}
+              disabled={saving}
+              className="bg-white hover:bg-gray-100 text-black px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+            {saveSuccess && (
+              <span className="text-sm text-green-400">
+                Professional summary saved successfully!
+              </span>
+            )}
+            {saveError && (
+              <span className="text-sm text-red-400">
+                {saveError}
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* Real-time status indicator */}
+        {profile?.updatedAt && (
+          <div className="text-sm text-[#9ca3af] mt-4 pt-4 border-t border-[#262626]">
+            Last updated: {new Date(profile.updatedAt).toLocaleString()}
+          </div>
+        )}
 
       </div>
     </div>
