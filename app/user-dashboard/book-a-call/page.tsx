@@ -15,6 +15,9 @@ import { ChevronLeft, ChevronRight, Check, Calendar as CalendarIcon, Clock, Vide
 import { supabase } from "@/lib/supabase";
 import dayjs from "dayjs";
 import { useOptimizedAvailability } from "@/hooks/useOptimizedAvailability";
+import { dietitianService } from "@/lib/dietitian-service";
+import { DietitianProfile } from "@/types";
+import { formatDietitianName } from "@/lib/utils/dietitian-name";
 
 interface Dietician {
   id: string;
@@ -114,6 +117,11 @@ function BookACallPageContent() {
   }, []);
   const [selectedDietician, setSelectedDietician] = useState<string>(prefillDietitianId || "");
   const [viewingProfile, setViewingProfile] = useState<Dietician | null>(null);
+  const [viewingProfileFull, setViewingProfileFull] = useState<DietitianProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  // Preloaded full profiles for all dietitians (keyed by dietitian ID)
+  const [preloadedProfiles, setPreloadedProfiles] = useState<Map<string, DietitianProfile>>(new Map());
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>("");
@@ -123,6 +131,8 @@ function BookACallPageContent() {
   const [paymentData, setPaymentData] = useState<any>(null);
   const [eventTypePrice, setEventTypePrice] = useState<number>(15000);
   const [dietitianName, setDietitianName] = useState<string>("");
+  const [userName, setUserName] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
   const [dietitians, setDietitians] = useState<Dietician[]>([]);
   const [loadingDietitians, setLoadingDietitians] = useState(true);
   const [eventTypes, setEventTypes] = useState<Array<{ id: string; title: string; length: number; price: number; currency: string }>>([]);
@@ -135,11 +145,12 @@ function BookACallPageContent() {
   const [availableDates, setAvailableDates] = useState<string[]>(() => {
     // Try to load from cache on mount if dietitian is already selected
     if (typeof window !== "undefined" && prefillDietitianId) {
+      return [];
       try {
         const cacheKey = `availability_${prefillDietitianId}_${prefillEventTypeId || 'default'}_${dayjs().format('YYYY-MM')}`;
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
-          const parsed = JSON.parse(cached);
+          const parsed = JSON.parse(cached as string);
           if (Date.now() - parsed.timestamp < 300000) {
             const dates = new Set(
               (parsed.slots || [])
@@ -150,7 +161,7 @@ function BookACallPageContent() {
                 .map((slot: any) => dayjs(slot.start).format("D"))
             );
             console.log('⚡ [INSTANT] Loaded dates from cache on mount:', Array.from(dates));
-            return Array.from(dates);
+            return Array.from(dates) as string[];
           }
         }
       } catch (err) {
@@ -230,7 +241,7 @@ function BookACallPageContent() {
                 })
                 .map((slot: any) => dayjs(slot.start).format("D"))
             );
-            setAvailableDates(Array.from(dates));
+            setAvailableDates(Array.from(dates) as string[]);
             console.log('⚡ [INSTANT] Dates loaded from cache for previous month:', Array.from(dates));
             return; // Don't fetch if we have cache
           }
@@ -262,7 +273,7 @@ function BookACallPageContent() {
                 })
                 .map((slot: any) => dayjs(slot.start).format("D"))
             );
-            setAvailableDates(Array.from(dates));
+            setAvailableDates(Array.from(dates) as string[]);
             console.log('⚡ [INSTANT] Dates loaded from cache for next month:', Array.from(dates));
             return; // Don't fetch if we have cache
           }
@@ -342,7 +353,7 @@ function BookACallPageContent() {
                     })
                     .map((slot: any) => dayjs(slot.start).format("D"))
                 );
-                setAvailableDates(Array.from(currentMonthDates));
+                setAvailableDates(Array.from(currentMonthDates) as string[]);
                 console.log('⚡ [INSTANT] Dates loaded from cache:', Array.from(currentMonthDates));
                 
                 // Still fetch fresh data in background
@@ -409,7 +420,7 @@ function BookACallPageContent() {
               console.log('💾 [PRELOAD] Cached availability data:', cacheKey);
             }
             
-            setAvailableDates(Array.from(currentMonthDates));
+            setAvailableDates(Array.from(currentMonthDates) as string[]);
             console.log('📊 [PRELOAD] Available dates set:', Array.from(currentMonthDates));
           } else {
             const errorData = await response.json().catch(() => ({}));
@@ -428,19 +439,71 @@ function BookACallPageContent() {
   }, [selectedDietician, selectedEventTypeId, selectedEventType, currentMonth]);
 
 
-  // Fetch dietitians on component mount
+  // Fetch dietitians on component mount using API endpoint (bypasses RLS)
   useEffect(() => {
     const fetchDietitians = async () => {
       try {
         setLoadingDietitians(true);
+        // Use API endpoint which uses admin client (bypasses RLS)
         const response = await fetch("/api/dietitians", {
           credentials: "include",
         });
+        
         if (response.ok) {
           const data = await response.json();
-          setDietitians(data.dietitians || []);
+          // API returns dietitians in the format we need
+          const formattedDietitians: Dietician[] = (data.dietitians || []).map((dietitian: any) => ({
+            id: dietitian.id,
+            name: dietitian.name,
+            qualification: dietitian.qualification || "Licensed Dietitian",
+            profileImage: dietitian.image || undefined,
+            description: dietitian.description || dietitian.bio || "Professional nutritionist ready to help you achieve your health goals.",
+          }));
+          setDietitians(formattedDietitians);
+          console.log("✅ Fetched dietitians:", formattedDietitians.length);
+          
+          // PRELOAD: Fetch full profiles for all dietitians in parallel
+          const profilePromises = formattedDietitians.map(async (dietitian) => {
+            try {
+              const profileResponse = await fetch(`/api/dietitians/${dietitian.id}`, {
+                credentials: "include",
+              });
+              if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                const fullProfile: DietitianProfile = {
+                  id: profileData.profile.id,
+                  name: profileData.profile.name,
+                  email: profileData.profile.email,
+                  bio: profileData.profile.bio,
+                  image: profileData.profile.image,
+                  specialization: profileData.profile.specialization,
+                  licenseNumber: profileData.profile.licenseNumber,
+                  experience: profileData.profile.experience,
+                  location: profileData.profile.location,
+                  qualifications: profileData.profile.qualifications || [],
+                  updatedAt: profileData.profile.updatedAt,
+                };
+                return { id: dietitian.id, profile: fullProfile };
+              }
+            } catch (err) {
+              console.warn(`⚠️ Failed to preload profile for ${dietitian.id}:`, err);
+            }
+            return null;
+          });
+          
+          const profileResults = await Promise.all(profilePromises);
+          const profilesMap = new Map<string, DietitianProfile>();
+          profileResults.forEach((result) => {
+            if (result) {
+              profilesMap.set(result.id, result.profile);
+            }
+          });
+          
+          setPreloadedProfiles(profilesMap);
+          console.log(`✅ Preloaded ${profilesMap.size} dietitian profiles`);
         } else {
-          console.error("Failed to fetch dietitians:", response.statusText);
+          const errorData = await response.json().catch(() => ({}));
+          console.error("Error fetching dietitians:", errorData);
         }
       } catch (err) {
         console.error("Error fetching dietitians:", err);
@@ -526,16 +589,51 @@ function BookACallPageContent() {
     }
   };
 
-  // Debug: Log formData and userProfile changes
+  // Update userName and userEmail when formData, userProfile, or session data changes (same method as dietitianName)
   useEffect(() => {
-    console.log('🔍 [DEBUG] formData/userProfile state:', {
+    const finalName = formData.name || userProfile?.name || sessionName || "";
+    const finalEmail = formData.email || userProfile?.email || sessionEmail || "";
+    setUserName(finalName);
+    setUserEmail(finalEmail);
+    console.log('👤 [DEBUG] User name/email updated:', {
       formDataName: formData.name,
       formDataEmail: formData.email,
       userProfileName: userProfile?.name,
       userProfileEmail: userProfile?.email,
-      hasUserProfile: !!userProfile
+      sessionName,
+      sessionEmail,
+      finalName,
+      finalEmail
     });
-  }, [formData.name, formData.email, userProfile]);
+  }, [formData.name, formData.email, userProfile, sessionName, sessionEmail]);
+
+  // Always fetch email from authenticated session when step 5 is reached (order summary)
+  // Since user is authenticated, we should always have access to their email
+  useEffect(() => {
+    if (step === 5) {
+      const fetchSessionEmail = async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user?.email) {
+            console.log('📧 [DEBUG] Ensuring email from authenticated session for order summary:', session.user.email);
+            // Always set sessionEmail from authenticated user
+            setSessionEmail(session.user.email);
+            // Set userEmail if not already set
+            if (!userEmail) {
+              setUserEmail(session.user.email);
+            }
+            // Also update formData if empty
+            if (!formData.email) {
+              setFormData(prev => ({ ...prev, email: session.user.email || "" }));
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching session email for order summary:", err);
+        }
+      };
+      fetchSessionEmail();
+    }
+  }, [step]);
 
   // Handle payment callback from Paystack
   useEffect(() => {
@@ -689,6 +787,10 @@ function BookACallPageContent() {
               const finalName = profileData.profile.name || extractedSessionName || "";
               const finalEmail = profileData.profile.email || extractedSessionEmail || "";
               
+              // Set userName and userEmail state (same method as dietitianName)
+              setUserName(finalName);
+              setUserEmail(finalEmail);
+              
               console.log('📝 [DEBUG] Setting formData:', {
                 finalName,
                 finalEmail,
@@ -711,6 +813,10 @@ function BookACallPageContent() {
               }));
             } else {
               console.log('⚠️ [DEBUG] No profile data, using session:', { sessionName: extractedSessionName, sessionEmail: extractedSessionEmail });
+              // Set userName and userEmail from session
+              setUserName(extractedSessionName);
+              setUserEmail(extractedSessionEmail);
+              
               setFormData((prev) => ({
                 ...prev,
                 name: extractedSessionName || prev.name || "",
@@ -725,6 +831,9 @@ function BookACallPageContent() {
               error: errorData
             });
             // If no profile, just set name and email from session
+            setUserName(extractedSessionName);
+            setUserEmail(extractedSessionEmail);
+            
             setFormData((prev) => ({
               ...prev,
               name: extractedSessionName || prev.name || "",
@@ -838,7 +947,7 @@ function BookACallPageContent() {
                   (req: any) => req.id === prefillRequestId
                 );
                 if (matchingRequest?.dietitian?.name) {
-                  setDietitianName(matchingRequest.dietitian.name);
+                  setDietitianName(formatDietitianName(matchingRequest.dietitian.name));
                   foundName = true;
                 }
               }
@@ -885,6 +994,66 @@ function BookACallPageContent() {
     const ampm = hour >= 12 ? "pm" : "am";
     const hour12 = hour % 12 || 12;
     return `${hour12}:${minutes}${ampm}`;
+  };
+
+  // Validate Step 1 form
+  const validateStep1 = (): Record<string, string> => {
+    const errors: Record<string, string> = {};
+
+    // Age validation
+    if (!formData.age || formData.age.trim() === "") {
+      errors.age = "Age is required";
+    } else {
+      const ageNum = parseInt(formData.age);
+      if (isNaN(ageNum)) {
+        errors.age = "Age must be a valid number";
+      } else if (ageNum < 18) {
+        errors.age = "Age must be at least 18";
+      }
+    }
+
+    // Occupation validation
+    if (!formData.occupation || formData.occupation.trim() === "") {
+      errors.occupation = "Occupation is required";
+    }
+
+    // Medical Condition validation
+    if (!formData.medicalCondition || formData.medicalCondition.trim() === "") {
+      errors.medicalCondition = "Medical condition is required";
+    }
+
+    // Monthly Food Budget validation
+    if (!formData.monthlyFoodBudget || formData.monthlyFoodBudget.trim() === "") {
+      errors.monthlyFoodBudget = "Monthly food budget is required";
+    } else {
+      const budgetNum = parseFloat(formData.monthlyFoodBudget);
+      if (isNaN(budgetNum) || budgetNum < 0) {
+        errors.monthlyFoodBudget = "Monthly food budget must be a valid positive number";
+      }
+    }
+
+    // Complaint/Additional Notes validation
+    if (!formData.complaint || formData.complaint.trim() === "") {
+      errors.complaint = "Complaint/Additional notes is required";
+    }
+
+    return errors;
+  };
+
+  // Handle Step 1 Continue
+  const handleStep1Continue = () => {
+    const errors = validateStep1();
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    setValidationErrors({});
+    // Proceed to step 2 or 3
+    if (isPrefill && prefillDietitianId) {
+      setStep(3);
+    } else {
+      setStep(2);
+    }
   };
 
   const handleCheckoutClick = async () => {
@@ -1251,7 +1420,7 @@ function BookACallPageContent() {
                 </div>
                 
                 <p className="text-sm text-[#9ca3af] leading-relaxed mb-6">
-                  {selectedEventTypeId && eventTypes.find(et => et.id === selectedEventTypeId)?.description || availableEventTypes[0]?.description || "Have one on one consultation with Licensed Dietitician [Nutritional counseling and treatment plan]"}
+                  {selectedEventTypeId && availableEventTypes.find(et => et.id === selectedEventTypeId)?.description || availableEventTypes[0]?.description || "Have one on one consultation with Licensed Dietitician [Nutritional counseling and treatment plan]"}
                 </p>
               </div>
 
@@ -1293,85 +1462,151 @@ function BookACallPageContent() {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-[#D4D4D4] mb-2">
-                          Age
+                          Age <span className="text-red-400">*</span>
                         </label>
                         <Input
                           type="number"
                           value={formData.age}
-                          onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                          className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb]"
+                          onChange={(e) => {
+                            setFormData({ ...formData, age: e.target.value });
+                            // Clear error when user starts typing
+                            if (validationErrors.age) {
+                              setValidationErrors(prev => {
+                                const newErrors = { ...prev };
+                                delete newErrors.age;
+                                return newErrors;
+                              });
+                            }
+                          }}
+                          className={`bg-[#0a0a0a] border-[#262626] text-[#f9fafb] ${validationErrors.age ? 'border-red-500' : ''}`}
                           placeholder="Enter your age"
-                          min="1"
+                          min="18"
                           max="120"
+                          required
                         />
+                        {validationErrors.age && (
+                          <p className="text-xs text-red-400 mt-1">{validationErrors.age}</p>
+                        )}
                       </div>
                       
                       <div>
                         <label className="block text-sm font-medium text-[#D4D4D4] mb-2">
-                          Occupation
+                          Occupation <span className="text-red-400">*</span>
                         </label>
                         <Input
                           type="text"
                           value={formData.occupation}
-                          onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
-                          className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb]"
+                          onChange={(e) => {
+                            setFormData({ ...formData, occupation: e.target.value });
+                            if (validationErrors.occupation) {
+                              setValidationErrors(prev => {
+                                const newErrors = { ...prev };
+                                delete newErrors.occupation;
+                                return newErrors;
+                              });
+                            }
+                          }}
+                          className={`bg-[#0a0a0a] border-[#262626] text-[#f9fafb] ${validationErrors.occupation ? 'border-red-500' : ''}`}
                           placeholder="Enter your occupation"
+                          required
                         />
+                        {validationErrors.occupation && (
+                          <p className="text-xs text-red-400 mt-1">{validationErrors.occupation}</p>
+                        )}
                       </div>
                       
                       <div>
                         <label className="block text-sm font-medium text-[#D4D4D4] mb-2">
-                          Medical Condition
+                          Medical Condition <span className="text-red-400">*</span>
                         </label>
                         <Textarea
                           value={formData.medicalCondition}
-                          onChange={(e) => setFormData({ ...formData, medicalCondition: e.target.value })}
+                          onChange={(e) => {
+                            setFormData({ ...formData, medicalCondition: e.target.value });
+                            if (validationErrors.medicalCondition) {
+                              setValidationErrors(prev => {
+                                const newErrors = { ...prev };
+                                delete newErrors.medicalCondition;
+                                return newErrors;
+                              });
+                            }
+                          }}
                           rows={3}
-                          className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb]"
+                          className={`bg-[#0a0a0a] border-[#262626] text-[#f9fafb] ${validationErrors.medicalCondition ? 'border-red-500' : ''}`}
                           placeholder="Any medical conditions or health concerns..."
+                          required
                         />
+                        {validationErrors.medicalCondition && (
+                          <p className="text-xs text-red-400 mt-1">{validationErrors.medicalCondition}</p>
+                        )}
                       </div>
                       
                       <div>
                         <label className="block text-sm font-medium text-[#D4D4D4] mb-2">
-                          Monthly Food Budget (NGN)
+                          Monthly Food Budget (NGN) <span className="text-red-400">*</span>
                         </label>
                         <Input
                           type="number"
                           value={formData.monthlyFoodBudget}
-                          onChange={(e) => setFormData({ ...formData, monthlyFoodBudget: e.target.value })}
-                          className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb]"
+                          onChange={(e) => {
+                            setFormData({ ...formData, monthlyFoodBudget: e.target.value });
+                            if (validationErrors.monthlyFoodBudget) {
+                              setValidationErrors(prev => {
+                                const newErrors = { ...prev };
+                                delete newErrors.monthlyFoodBudget;
+                                return newErrors;
+                              });
+                            }
+                          }}
+                          className={`bg-[#0a0a0a] border-[#262626] text-[#f9fafb] ${validationErrors.monthlyFoodBudget ? 'border-red-500' : ''}`}
                           placeholder="Enter your monthly food budget"
                           min="0"
                           step="1000"
+                          required
                         />
+                        {validationErrors.monthlyFoodBudget && (
+                          <p className="text-xs text-red-400 mt-1">{validationErrors.monthlyFoodBudget}</p>
+                        )}
                       </div>
                       
                       <div>
                         <label className="block text-sm font-medium text-[#D4D4D4] mb-2">
-                          Complaint / Additional Notes
+                          Complaint / Additional Notes <span className="text-red-400">*</span>
                         </label>
                         <Textarea
                           value={formData.complaint}
-                          onChange={(e) => setFormData({ ...formData, complaint: e.target.value })}
+                          onChange={(e) => {
+                            setFormData({ ...formData, complaint: e.target.value });
+                            if (validationErrors.complaint) {
+                              setValidationErrors(prev => {
+                                const newErrors = { ...prev };
+                                delete newErrors.complaint;
+                                return newErrors;
+                              });
+                            }
+                          }}
                           rows={4}
-                          className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb]"
+                          className={`bg-[#0a0a0a] border-[#262626] text-[#f9fafb] ${validationErrors.complaint ? 'border-red-500' : ''}`}
                           placeholder="Tell us about your concerns, goals, or any special requirements..."
+                          required
                         />
+                        {validationErrors.complaint && (
+                          <p className="text-xs text-red-400 mt-1">{validationErrors.complaint}</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-3 mt-6">
                       {isPrefill && prefillDietitianId ? (
                         // Skip to step 3 if dietitian is already pre-selected
                         <Button
-                          onClick={() => setStep(3)}
+                          onClick={handleStep1Continue}
                           className="bg-[#FFF4E0] hover:bg-[#ffe9c2] text-black px-6 py-2"
                         >
                           Continue
                         </Button>
                       ) : (
                         <Button
-                          onClick={() => setStep(2)}
+                          onClick={handleStep1Continue}
                           className="bg-[#FFF4E0] hover:bg-[#ffe9c2] text-black px-6 py-2"
                         >
                           Continue
@@ -1407,7 +1642,7 @@ function BookACallPageContent() {
                       {selectedEventTypeId && eventTypes.find(et => et.id === selectedEventTypeId)?.title || availableEventTypes[0]?.title || "1-on-1 Consultation with Licensed Dietician"}
                     </h2>
                     <p className="text-sm text-[#9ca3af] leading-relaxed mb-6">
-                      {selectedEventTypeId && eventTypes.find(et => et.id === selectedEventTypeId)?.description || availableEventTypes[0]?.description || "Have one on one consultation with Licensed Dietitician [Nutritional counseling and treatment plan]"}
+                      {selectedEventTypeId && availableEventTypes.find(et => et.id === selectedEventTypeId)?.description || availableEventTypes[0]?.description || "Have one on one consultation with Licensed Dietitician [Nutritional counseling and treatment plan]"}
                     </p>
                   </div>
 
@@ -1437,11 +1672,7 @@ function BookACallPageContent() {
                 <div className="p-4 md:p-8">
                   <div>
                     <h2 className="text-lg font-semibold text-[#f9fafb] mb-6">Select Dietician</h2>
-                    {loadingDietitians ? (
-                      <div className="text-center py-8">
-                        <div className="text-[#9ca3af]">Loading dietitians...</div>
-                      </div>
-                    ) : dietitians.length === 0 ? (
+                    {loadingDietitians ? null : dietitians.length === 0 ? (
                       <div className="text-center py-8">
                         <div className="text-[#9ca3af]">No dietitians available</div>
                       </div>
@@ -1503,9 +1734,59 @@ function BookACallPageContent() {
                               <Button
                                 variant="outline"
                                 className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-3 py-1 text-xs flex-shrink-0"
-                                onClick={(e) => {
+                                onClick={async (e) => {
                                   e.stopPropagation();
                                   setViewingProfile(dietician);
+                                  
+                                  // Check if profile is already preloaded
+                                  const preloadedProfile = preloadedProfiles.get(dietician.id);
+                                  if (preloadedProfile) {
+                                    // Use preloaded profile immediately (no loading state)
+                                    setViewingProfileFull(preloadedProfile);
+                                    setLoadingProfile(false);
+                                    console.log('⚡ Using preloaded profile:', preloadedProfile);
+                                  } else {
+                                    // Fallback: Fetch if not preloaded
+                                    setLoadingProfile(true);
+                                    try {
+                                      const response = await fetch(`/api/dietitians/${dietician.id}`, {
+                                        credentials: "include",
+                                      });
+                                      if (response.ok) {
+                                        const data = await response.json();
+                                        // Transform API response to DietitianProfile format
+                                        const freshProfile: DietitianProfile = {
+                                          id: data.profile.id,
+                                          name: data.profile.name,
+                                          email: data.profile.email,
+                                          bio: data.profile.bio,
+                                          image: data.profile.image,
+                                          specialization: data.profile.specialization,
+                                          licenseNumber: data.profile.licenseNumber,
+                                          experience: data.profile.experience,
+                                          location: data.profile.location,
+                                          qualifications: data.profile.qualifications || [],
+                                          updatedAt: data.profile.updatedAt,
+                                        };
+                                        setViewingProfileFull(freshProfile);
+                                        
+                                        // Cache it for future use
+                                        setPreloadedProfiles(prev => {
+                                          const newMap = new Map(prev);
+                                          newMap.set(dietician.id, freshProfile);
+                                          return newMap;
+                                        });
+                                        console.log('✅ Loaded and cached full profile:', freshProfile);
+                                      } else {
+                                        const errorData = await response.json().catch(() => ({}));
+                                        console.error('Failed to load full profile:', errorData);
+                                      }
+                                    } catch (err) {
+                                      console.error('Failed to load full profile:', err);
+                                    } finally {
+                                      setLoadingProfile(false);
+                                    }
+                                  }
                                 }}
                               >
                                 View Profile
@@ -1753,15 +2034,9 @@ function BookACallPageContent() {
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-[#9ca3af]">Name</span>
-                      <span className="text-[#f9fafb]">
-                        {formData.name || userProfile?.name || "N/A"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
                       <span className="text-[#9ca3af]">Email</span>
                       <span className="text-[#f9fafb]">
-                        {formData.email || userProfile?.email || "N/A"}
+                        {sessionEmail || userEmail || formData.email || userProfile?.email || "N/A"}
                       </span>
                     </div>
                     {formData.age && (
@@ -1989,9 +2264,18 @@ function BookACallPageContent() {
               {/* Professional Summary */}
               <div className="border-t border-[#262626] pt-6">
                 <h4 className="text-sm font-medium text-[#D4D4D4] mb-3">Professional Summary</h4>
-                <p className="text-sm text-[#9ca3af] leading-relaxed">
-                  {viewingProfile.description || viewingProfile.bio || "No professional summary available."}
-                </p>
+                {loadingProfile ? (
+                  <p className="text-sm text-[#9ca3af]">Loading...</p>
+                ) : (
+                  <p className="text-sm text-[#9ca3af] leading-relaxed whitespace-pre-line">
+                    {viewingProfileFull?.bio || viewingProfile.description || "No professional summary available."}
+                  </p>
+                )}
+                {viewingProfileFull?.updatedAt && !loadingProfile && (
+                  <div className="text-xs text-[#9ca3af] pt-3 mt-3 border-t border-[#262626]">
+                    Profile updated: {new Date(viewingProfileFull.updatedAt).toLocaleString()}
+                  </div>
+                )}
               </div>
 
               {/* Close Button */}
