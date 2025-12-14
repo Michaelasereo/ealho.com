@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server/client";
 import { createAdminClientServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { getDevUserFromPath } from "@/lib/auth-helpers";
 import { DashboardProfileInitializer } from "./DashboardProfileInitializer";
 
 /**
@@ -14,6 +15,20 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   try {
+    // DEVELOPMENT MODE: Use hardcoded dietitian user
+    const devUser = getDevUserFromPath('/dashboard');
+    if (devUser) {
+      const initialProfile = {
+        name: devUser.name || null,
+        image: devUser.image || null,
+      };
+      return (
+        <DashboardProfileInitializer initialProfile={initialProfile}>
+          {children}
+        </DashboardProfileInitializer>
+      );
+    }
+
     // Fetch user and profile server-side
     const supabase = await createClient();
     const {

@@ -11,11 +11,12 @@ export async function determineUserRedirect(userId: string): Promise<string> {
     const supabaseAdmin = createAdminClient();
 
     // Use retry logic to get user role (handles race conditions)
+    // Increased retries and delay to handle race conditions better
     const { role: userRole, error: roleError } = await getUserRoleWithRetry(
       supabaseAdmin,
       userId,
-      3,
-      500
+      5,
+      600
     );
 
     if (roleError === "User role not found") {
@@ -29,7 +30,35 @@ export async function determineUserRedirect(userId: string): Promise<string> {
 
     if (roleError || !userRole) {
       console.error("Error fetching user role for redirect:", roleError);
-      return "/";
+      // Instead of defaulting, try one more direct database query to get the role
+      try {
+        const { data: directUser } = await supabaseAdmin
+          .from("users")
+          .select("role")
+          .eq("id", userId)
+          .single();
+        if (directUser?.role) {
+          const normalizedRole = normalizeRole(directUser.role);
+          const redirectPath = getRedirectPathForRole(normalizedRole);
+          console.info("DetermineRedirectDirectQuerySuccess", {
+            userId,
+            role: directUser.role,
+            normalizedRole,
+            redirectPath,
+            timestamp: new Date().toISOString(),
+          });
+          return redirectPath;
+        }
+      } catch (directError) {
+        console.error("Direct user query also failed:", directError);
+      }
+      // Last resort: log error but don't guess - redirect to enrollment for safety
+      console.error("DetermineRedirectFailed", {
+        userId,
+        roleError,
+        timestamp: new Date().toISOString(),
+      });
+      return "/dietitian-enrollment"; // Safer default - user can complete enrollment
     }
 
     // Fetch full user data to check account status
@@ -56,10 +85,37 @@ export async function determineUserRedirect(userId: string): Promise<string> {
 
     // Get role-based redirect using the role we fetched with retry
     const normalizedRole = normalizeRole(userRole);
-    return getRedirectPathForRole(normalizedRole);
+    const redirectPath = getRedirectPathForRole(normalizedRole);
+    
+    console.info("DetermineRedirectSuccess", {
+      userId,
+      role: userRole,
+      normalizedRole,
+      redirectPath,
+      timestamp: new Date().toISOString(),
+    });
+    
+    return redirectPath;
   } catch (error) {
     console.error("Error determining user redirect:", error);
-    return "/";
+    // Don't default to user-dashboard - try to fetch role one more time
+    try {
+      const supabaseAdmin = createAdminClient();
+      const { data: emergencyUser } = await supabaseAdmin
+        .from("users")
+        .select("role")
+        .eq("id", userId)
+        .single();
+      
+      if (emergencyUser?.role) {
+        const normalizedRole = normalizeRole(emergencyUser.role);
+        return getRedirectPathForRole(normalizedRole);
+      }
+    } catch (emergencyError) {
+      console.error("Emergency role fetch also failed:", emergencyError);
+    }
+    // Last resort: redirect to enrollment instead of assuming user role
+    return "/dietitian-enrollment";
   }
 }
 

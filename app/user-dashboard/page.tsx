@@ -86,45 +86,37 @@ export default function UserDashboardPage() {
     fetchSessionRequests();
     fetchMealPlansCount();
     
-    // Fetch user name for welcome message
-    const fetchUserName = () => {
+    // Fetch user name for welcome message - fetch from API securely (no sessionStorage)
+    const fetchUserName = async () => {
       try {
-        const cached = sessionStorage.getItem('userProfile');
-        if (cached) {
-          const profile = JSON.parse(cached);
-          setUserName(profile.name || null);
+        const response = await fetch("/api/user/profile", {
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const profile = data.profile;
+          if (profile?.name) {
+            setUserName(profile.name);
+          } else {
+            // Fallback: try to get from session
+            const { createBrowserClient } = await import("@/lib/supabase/client");
+            const supabase = createBrowserClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              const name = session.user.user_metadata?.name || 
+                          session.user.user_metadata?.full_name || 
+                          null;
+              setUserName(name);
+            }
+          }
         }
       } catch (err) {
-        console.error("Error reading cached user profile:", err);
+        console.error("Error fetching user name:", err);
       }
     };
     
-    // Check immediately
+    // Fetch user name securely
     fetchUserName();
-    
-    // Also listen for storage events (when sidebar updates the cache)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'userProfile' && e.newValue) {
-        try {
-          const profile = JSON.parse(e.newValue);
-          setUserName(profile.name || null);
-        } catch (err) {
-          console.error("Error parsing updated user profile:", err);
-        }
-      }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Also poll for changes (since storage event only fires from other tabs)
-    const interval = setInterval(() => {
-      fetchUserName();
-    }, 1000);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
   }, []);
 
   const fetchMealPlansCount = async () => {

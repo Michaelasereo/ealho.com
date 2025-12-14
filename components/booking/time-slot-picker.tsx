@@ -13,6 +13,7 @@ interface TimeSlotPickerProps {
   selectedTime?: string;
   className?: string;
   dietitianId?: string; // Optional: if provided, will fetch real availability
+  eventTypeId?: string; // Optional: if provided, will use this event type for availability
 }
 
 // Generate time slots for a day (9 AM to 6 PM) - fallback
@@ -38,6 +39,7 @@ export function TimeSlotPicker({
   selectedTime,
   className,
   dietitianId,
+  eventTypeId,
 }: TimeSlotPickerProps) {
   const [realAvailableSlots, setRealAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -51,16 +53,28 @@ export function TimeSlotPicker({
           const dateStr = dayjs(date).format("YYYY-MM-DD");
           const nextDayStr = dayjs(date).add(1, "day").format("YYYY-MM-DD");
 
+          const params = new URLSearchParams({
+            dietitianId,
+            startDate: dateStr,
+            endDate: nextDayStr,
+            duration: duration.toString(),
+          });
+          
+          if (eventTypeId) {
+            params.append('eventTypeId', eventTypeId);
+          }
+
           console.log('📅 [DEBUG] TimeSlotPicker fetching for:', {
             date: dateStr,
             startDate: dateStr,
             endDate: nextDayStr,
             dietitianId,
-            duration
+            duration,
+            eventTypeId
           });
 
           const response = await fetch(
-            `/api/availability/timeslots?dietitianId=${dietitianId}&startDate=${dateStr}&endDate=${nextDayStr}&duration=${duration}`,
+            `/api/availability/timeslots?${params.toString()}`,
             {
               credentials: "include",
             }
@@ -105,7 +119,7 @@ export function TimeSlotPicker({
 
       fetchAvailability();
     }
-  }, [dietitianId, date, duration]);
+  }, [dietitianId, date, duration, eventTypeId]);
 
   // Use real slots if available, otherwise use provided availableSlots, otherwise fallback
   const allSlots = generateTimeSlots(duration);

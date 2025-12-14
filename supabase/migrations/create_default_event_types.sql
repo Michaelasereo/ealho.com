@@ -39,30 +39,13 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Insert Free Trial Consultation (if it doesn't exist)
+  -- Insert 1-on-1 Nutritional counselling and assessment (if it doesn't exist)
   INSERT INTO event_types (user_id, title, slug, description, length, price, currency, active)
   SELECT 
     dietitian_user_id,
-    'Free Trial Consultation',
-    'free-trial-consultation',
-    'Get insights into why you need to see a dietician.',
-    15,
-    0,
-    'NGN',
-    true
-  WHERE NOT EXISTS (
-    SELECT 1 FROM event_types 
-    WHERE user_id = dietitian_user_id 
-    AND slug = 'free-trial-consultation'
-  );
-
-  -- Insert 1-on-1 Consultation with Licensed Dietician (if it doesn't exist)
-  INSERT INTO event_types (user_id, title, slug, description, length, price, currency, active)
-  SELECT 
-    dietitian_user_id,
-    '1-on-1 Consultation with Licensed Dietician',
-    '1-on-1-consultation-with-licensed-dietician',
-    'Have one on one consultation with Licensed Dietitician [Nutritional counseling and treatment plan]',
+    '1-on-1 Nutritional counselling and assessment',
+    '1-on-1-nutritional-counselling-and-assessment',
+    'Have one on one consultation with Licensed Dietitician [Nutritional counseling and assessment]',
     45,
     15000,
     'NGN',
@@ -70,7 +53,24 @@ BEGIN
   WHERE NOT EXISTS (
     SELECT 1 FROM event_types 
     WHERE user_id = dietitian_user_id 
-    AND slug = '1-on-1-consultation-with-licensed-dietician'
+    AND slug = '1-on-1-nutritional-counselling-and-assessment'
+  );
+
+  -- Insert 1-on-1 Nutritional Counselling and Assessment + Meal Plan (if it doesn't exist)
+  INSERT INTO event_types (user_id, title, slug, description, length, price, currency, active)
+  SELECT 
+    dietitian_user_id,
+    '1-on-1 Nutritional Counselling and Assessment + Meal Plan',
+    '1-on-1-nutritional-counselling-and-assessment-meal-plan',
+    'Comprehensive nutritional counselling and assessment session with a personalized 7-day meal plan included.',
+    45,
+    25000,
+    'NGN',
+    true
+  WHERE NOT EXISTS (
+    SELECT 1 FROM event_types 
+    WHERE user_id = dietitian_user_id 
+    AND slug = '1-on-1-nutritional-counselling-and-assessment-meal-plan'
   );
 
   -- Insert Monitoring (if it doesn't exist)

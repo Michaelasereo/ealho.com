@@ -74,10 +74,11 @@ export function BookingCard({
     const slug = eventTypeSlug?.toLowerCase() || "";
     const titleLower = title.toLowerCase();
     
-    if (slug === "free-trial-consultation" || titleLower.includes("free trial") || titleLower.includes("free-trial")) {
-      return { label: "Free Trial", color: "bg-green-500/20 text-green-400 border-green-500/30" };
+    // Check for meal plan event type first (more specific)
+    if (slug === "1-on-1-nutritional-counselling-and-assessment-meal-plan" || titleLower.includes("meal plan")) {
+      return { label: "1-on-1 + Meal Plan", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" };
     }
-    if (slug === "1-on-1-consultation-with-licensed-dietician" || titleLower.includes("1-on-1") || titleLower.includes("1 on 1")) {
+    if (slug === "1-on-1-nutritional-counselling-and-assessment" || (titleLower.includes("1-on-1") && !titleLower.includes("meal plan")) || (titleLower.includes("1 on 1") && !titleLower.includes("meal plan"))) {
       return { label: "1-on-1", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" };
     }
     if (slug === "monitoring" || titleLower.includes("monitoring")) {

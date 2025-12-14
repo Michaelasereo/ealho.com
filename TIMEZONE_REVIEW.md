@@ -143,6 +143,5 @@ To verify timezone handling works correctly:
 ## 🔍 Files to Review/Update
 
 1. `app/user-dashboard/book-a-call/page.tsx` - Fix date creation (line 294)
-2. `app/book/[dietitian]/page.tsx` - Check date creation (if used)
-3. `lib/timezone.ts` - Create utility file (new)
-4. `app/api/bookings/route.ts` - Verify timezone handling in API
+2. `lib/timezone.ts` - Create utility file (new)
+3. `app/api/bookings/route.ts` - Verify timezone handling in API

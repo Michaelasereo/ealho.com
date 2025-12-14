@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { createBrowserClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useRouter, usePathname } from "next/navigation";
@@ -61,9 +61,15 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
     return null;
   });
   
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  
+  // Initialize loading state - start with false for better UX
+  // Will be set appropriately in useEffect based on route
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Track if we've already initialized for public routes to prevent re-initialization
+  const publicRouteInitialized = useRef(false);
 
   // Sync profile from initialProfile prop
   useEffect(() => {
@@ -75,28 +81,77 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
     }
   }, [initialProfile]);
 
+  // CRITICAL: Dedicated effect to ensure loading is ALWAYS false for public routes
+  // This runs on every pathname change and immediately sets loading to false
+  // This prevents any race conditions or edge cases
   useEffect(() => {
+    const currentPathname = pathname || '/';
+    const publicRoutes = ['/login', '/signup', '/', '/dietitian-login', '/admin-login', '/dietitian-enrollment'];
+    const isPublicRoute = publicRoutes.some(route => currentPathname === route || currentPathname.startsWith(route));
+    
+    if (isPublicRoute) {
+      // Force loading to false immediately - this overrides any other state
+      setIsLoading(false);
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    // CRITICAL: Check pathname FIRST and set loading to false immediately for public routes
+    // This must happen before any other logic to prevent blocking
+    const currentPathname = pathname || '/';
+    const publicRoutes = ['/login', '/signup', '/', '/dietitian-login', '/admin-login', '/dietitian-enrollment'];
+    const isPublicRoute = publicRoutes.some(route => currentPathname === route || currentPathname.startsWith(route));
+    
+    // For public routes, ALWAYS set loading to false immediately - no exceptions
+    if (isPublicRoute) {
+      setIsLoading(false);
+      // Mark as initialized to prevent unnecessary re-runs
+      if (!publicRouteInitialized.current) {
+        console.log("AuthProvider: Public route detected, loading set to false immediately", { pathname: currentPathname });
+        publicRouteInitialized.current = true;
+      }
+    } else {
+      // Reset flag when not on public route
+      publicRouteInitialized.current = false;
+    }
+    
     // Skip if no supabase client (SSR)
     if (!supabase) {
       setIsLoading(false);
       return;
     }
+    
+    // Still set up auth listener for public routes, but don't block rendering
+    // Initialize auth in background without blocking
 
     // Get initial session
     const initializeAuth = async () => {
       try {
-        setIsLoading(true);
+        // Only set loading to true if not on public route
+        // For public routes, loading should always remain false
+        if (!isPublicRoute) {
+          setIsLoading(true);
+        } else {
+          // Ensure loading stays false for public routes
+          setIsLoading(false);
+        }
 
-        // Get session - don't use timeout race, let it complete naturally
-        // The onAuthStateChange listener will handle updates anyway
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
+        // Get session - for public routes, skip this call to prevent blocking
+        // The onAuthStateChange listener will handle session detection
+        let session = null;
+        let error = null;
+        
+        if (!isPublicRoute) {
+          // Only fetch session for protected routes
+          const result = await supabase.auth.getSession();
+          session = result.data?.session || null;
+          error = result.error || null;
+        }
 
         if (error) {
           console.error("AuthProviderInitError", error);
-          // Loading will be set to false by onAuthStateChange INITIAL_SESSION
+          // Set loading to false immediately on error
+          setIsLoading(false);
           return;
         }
 
@@ -166,15 +221,28 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
         // Set loading to false and continue - user might still be able to use the app
         setUser(null);
         setRole(null);
+        setIsLoading(false);
       } finally {
-        // Don't set loading here - let onAuthStateChange INITIAL_SESSION handle it
-        // This prevents race conditions
-        console.log("AuthProvider: initializeAuth completed (loading will be set by onAuthStateChange)");
+        // Set loading to false immediately after session check completes
+        // Don't wait for INITIAL_SESSION event - this prevents continuous loading
+        if (!isPublicRoute) {
+          setIsLoading(false);
+          console.log("AuthProvider: initializeAuth completed, loading set to false");
+        }
       }
     };
 
     // Initialize auth first - this will set user/role from getSession()
-    initializeAuth();
+    // For public routes, run in background without blocking
+    if (isPublicRoute) {
+      // Run async without awaiting - don't block rendering
+      initializeAuth().catch(err => {
+        console.warn("AuthProvider: Background auth init failed for public route", err);
+      });
+    } else {
+      // For protected routes, initialize normally
+      initializeAuth();
+    }
 
     // Listen for auth changes - this will also handle initial session
     // and updates even if the manual getSession() call fails
@@ -314,26 +382,37 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
       if (event !== "INITIAL_SESSION") {
         setIsLoading(false);
       }
+      
+      // Extra safeguard: For public routes, always ensure loading is false
+      // This prevents any edge cases where loading might get stuck
+      const currentPath = pathname || '/';
+      const isCurrentlyPublicRoute = publicRoutes.some(route => currentPath === route || currentPath.startsWith(route));
+      if (isCurrentlyPublicRoute) {
+        setIsLoading(false);
+      }
     });
       
       subscription = sub;
       console.log("AuthProvider: onAuthStateChange subscription created");
     } catch (error: any) {
       console.error("AuthProvider: Failed to create auth state change listener", error);
-      // If subscription fails, still set loading to false after a delay
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 1000);
+      // If subscription fails, set loading to false immediately
+      setIsLoading(false);
     }
 
-    // Safety timeout - ensure loading is set to false after max 2 seconds
-    // This prevents infinite loading if INITIAL_SESSION doesn't fire
+    // Safety timeout - ensure loading is set to false
+    // Increased timeout to 10 seconds to allow for slower connections
+    // INITIAL_SESSION should fire within this time, but we have a fallback
+    // Use functional update to check current state, not closure value
     const safetyTimeout = setTimeout(() => {
-      if (isLoading) {
-        console.warn("AuthProvider: Safety timeout - INITIAL_SESSION didn't fire, forcing loading to false");
-        setIsLoading(false);
-      }
-    }, 2000);
+      setIsLoading((currentLoading) => {
+        if (currentLoading) {
+          console.warn("AuthProvider: Safety timeout - INITIAL_SESSION didn't fire, forcing loading to false");
+          return false;
+        }
+        return currentLoading;
+      });
+    }, 10000); // 10 seconds - enough time for most connections
 
     return () => {
       clearTimeout(safetyTimeout);
@@ -341,7 +420,7 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
         subscription.unsubscribe();
       }
     };
-  }, [supabase, router, pathname, initialProfile]);
+  }, [supabase, router, pathname]);
 
   // Listen for storage events (multi-tab sync)
   useEffect(() => {
@@ -484,6 +563,20 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
       console.error("RefreshSessionError", error);
     }
   };
+
+  // CRITICAL SAFEGUARD: Force loading to false for public routes
+  // This effect runs on every render and ensures loading can NEVER be true for public routes
+  // This is the final line of defense against any loading state issues
+  useEffect(() => {
+    const currentPathname = pathname || '/';
+    const publicRoutes = ['/login', '/signup', '/', '/dietitian-login', '/admin-login', '/dietitian-enrollment'];
+    const isPublicRoute = publicRoutes.some(route => currentPathname === route || currentPathname.startsWith(route));
+    
+    if (isPublicRoute) {
+      // ALWAYS set loading to false for public routes - no conditions
+      setIsLoading(false);
+    }
+  });
 
   return (
     <AuthContext.Provider

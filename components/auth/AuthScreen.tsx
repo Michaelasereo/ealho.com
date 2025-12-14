@@ -27,7 +27,8 @@ export function AuthScreen({ title, subtitle, redirectPath = "/user-dashboard", 
 
       // Always prefer NEXT_PUBLIC_SITE_URL if set (for production), otherwise use window.location.origin
       // This ensures production always uses the correct URL even if accessed via different domains
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      // Trim any whitespace to prevent URL parsing errors
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).trim();
       
       // FIXED: Let Supabase handle state - don't use custom state
       // Add source parameter to track where OAuth was initiated

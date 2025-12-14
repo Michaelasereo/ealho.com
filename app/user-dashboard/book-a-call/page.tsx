@@ -750,11 +750,11 @@ function BookACallPageContent() {
 
         if (session?.user) {
           // Get name and email from session as fallback
-          const extractedSessionName =
-            session.user.user_metadata?.name ||
-            session.user.user_metadata?.full_name ||
-            "";
-          const extractedSessionEmail = session.user.email || "";
+    const extractedSessionName =
+      session.user.user_metadata?.name ||
+      session.user.user_metadata?.full_name ||
+      "";
+    const extractedSessionEmail = session.user.email || "";
 
           // Store session data in state so it's always available
           setSessionName(extractedSessionName);
@@ -1003,7 +1003,7 @@ function BookACallPageContent() {
     // Age validation
     if (!formData.age || formData.age.trim() === "") {
       errors.age = "Age is required";
-    } else {
+      } else {
       const ageNum = parseInt(formData.age);
       if (isNaN(ageNum)) {
         errors.age = "Age must be a valid number";
@@ -1156,8 +1156,8 @@ function BookACallPageContent() {
             const errorData = await bookingResponse.json().catch(() => ({}));
             console.error("Failed to create booking:", errorData);
             alert("Failed to create booking. Please try again.");
-          }
-        } catch (err) {
+      }
+    } catch (err) {
           console.error("Error creating booking:", err);
           alert("Error creating booking. Please try again.");
         }

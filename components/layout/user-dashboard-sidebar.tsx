@@ -30,28 +30,13 @@ const navigation = [
 interface UserDashboardSidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+  initialUserProfile?: { name: string; image: string | null } | null;
 }
 
-export function UserDashboardSidebar({ isOpen = false, onClose }: UserDashboardSidebarProps) {
+export function UserDashboardSidebar({ isOpen = false, onClose, initialUserProfile }: UserDashboardSidebarProps) {
   const pathname = usePathname();
-  const [userProfile, setUserProfile] = useState<{ name: string; image: string | null } | null>(() => {
-    // Initialize from sessionStorage if available (prevents flicker on navigation)
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = sessionStorage.getItem('userProfile');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          console.log("UserDashboardSidebar: Loaded profile from sessionStorage", parsed);
-          return parsed;
-        }
-      } catch (error) {
-        console.warn("UserDashboardSidebar: Error loading cached profile", error);
-        // Clear invalid cache
-        sessionStorage.removeItem('userProfile');
-      }
-    }
-    return null;
-  });
+  // Use prop if provided (from server-side), otherwise fetch client-side (no sessionStorage)
+  const [userProfile, setUserProfile] = useState<{ name: string; image: string | null } | null>(initialUserProfile || null);
   const [isLoading, setIsLoading] = useState(!userProfile);
   const [supabase, setSupabase] = useState<ReturnType<typeof createBrowserClient> | null>(null);
 
@@ -71,11 +56,20 @@ export function UserDashboardSidebar({ isOpen = false, onClose }: UserDashboardS
   useEffect(() => {
     console.log("UserDashboardSidebar: useEffect triggered", {
       hasUserProfile: !!userProfile,
+      hasInitialProfile: !!initialUserProfile,
       hasSupabase: !!supabase,
       isLoading,
     });
     
-    // Only fetch if we don't have cached data
+    // If we have initialUserProfile prop, use it immediately - no need to fetch
+    if (initialUserProfile && !userProfile) {
+      console.log("UserDashboardSidebar: Using initialUserProfile from props", initialUserProfile);
+      setUserProfile({ name: initialUserProfile.name, image: initialUserProfile.image });
+      setIsLoading(false);
+      return;
+    }
+    
+    // Only fetch if we don't have profile data
     if (userProfile) {
       console.log("UserDashboardSidebar: Already have profile, skipping fetch", userProfile);
       setIsLoading(false);
@@ -106,9 +100,10 @@ export function UserDashboardSidebar({ isOpen = false, onClose }: UserDashboardS
         console.log("UserDashboardSidebar: About to call getSession()...");
         try {
           console.log("UserDashboardSidebar: Calling getSession() with timeout...");
+          // Increased timeout to 5 seconds for slower connections
           const sessionResult = await Promise.race([
             supabase.auth.getSession(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("getSession timeout")), 1500))
+            new Promise((_, reject) => setTimeout(() => reject(new Error("getSession timeout")), 5000))
           ]) as any;
           
           if (sessionResult?.data?.session?.user) {
@@ -120,9 +115,10 @@ export function UserDashboardSidebar({ isOpen = false, onClose }: UserDashboardS
           } else {
             console.log("UserDashboardSidebar: getSession() returned no user, trying getUser()...");
             // Try getUser() as fallback
+            // Increased timeout to 5 seconds for slower connections
             const userResult = await Promise.race([
               supabase.auth.getUser(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error("getUser timeout")), 1500))
+              new Promise((_, reject) => setTimeout(() => reject(new Error("getUser timeout")), 5000))
             ]) as any;
             
             if (userResult?.data?.user) {
@@ -136,13 +132,22 @@ export function UserDashboardSidebar({ isOpen = false, onClose }: UserDashboardS
             }
           }
         } catch (timeoutError: any) {
-          console.warn("UserDashboardSidebar: Auth methods timed out, using fallback", timeoutError);
-          // Both methods timed out - set default profile
+          // Only log as warning if we don't have initialUserProfile - timeouts are expected on slow connections
+          if (!initialUserProfile) {
+            console.warn("UserDashboardSidebar: Auth methods timed out, using fallback", timeoutError);
+          } else {
+            console.log("UserDashboardSidebar: Auth methods timed out, but have initialUserProfile - will use that");
+          }
+          // Both methods timed out - use initialUserProfile if available, otherwise set default
           if (mounted) {
-            setUserProfile({
-              name: "User",
-              image: null,
-            });
+            if (initialUserProfile) {
+              setUserProfile({ name: initialUserProfile.name, image: initialUserProfile.image });
+            } else {
+              setUserProfile({
+                name: "User",
+                image: null,
+              });
+            }
             setIsLoading(false);
           }
           return;
@@ -188,22 +193,24 @@ export function UserDashboardSidebar({ isOpen = false, onClose }: UserDashboardS
           image: googleImage,
         };
         
-        console.log("UserDashboardSidebar: Setting quick profile", quickProfile);
+        console.log("UserDashboardSidebar: Setting quick profile from auth metadata", {
+          userId: sessionUser.id,
+          email: sessionUser.email,
+          name: quickProfile.name,
+          hasImage: !!quickProfile.image,
+        });
         
         if (mounted) {
           setUserProfile(quickProfile);
-          setIsLoading(false); // Always stop loading - we have at least basic info
+          // Don't stop loading yet - we'll fetch from database and update
           
-          // Cache in sessionStorage
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem('userProfile', JSON.stringify(quickProfile));
-          }
+          // No sessionStorage - data comes from server-side props (secure)
         }
 
-        // Get user data from database (this might be slower, but we already have basic info displayed)
+        // Get user data from database using the authenticated user's ID
         const { data: user, error: userError } = await supabase
           .from("users")
-          .select("name, image, role")
+          .select("name, email, image, role")
           .eq("id", sessionUser.id)
           .single();
 
@@ -215,27 +222,41 @@ export function UserDashboardSidebar({ isOpen = false, onClose }: UserDashboardS
           });
           
           // We already set the profile from Google auth, so just return
+          if (mounted) {
+            setIsLoading(false);
+          }
           return;
         }
 
         // Update profile with database data if available (prefer database name, but keep Google image for users)
         if (user && mounted) {
+          // Ensure we're using the correct authenticated user's data
           // For regular users, prefer Google image; for dietitians, use uploaded image
           const profileImage = user.role === "DIETITIAN" 
             ? (user.image || googleImage)
             : (googleImage || user?.image);
 
+          // Prefer database name, fallback to Google auth name
+          const finalName = user.name || googleName || sessionUser.email?.split("@")[0] || "User";
+
           const profile = {
-            name: user.name || googleName || "User",
+            name: finalName,
             image: profileImage,
           };
 
+          console.log("UserDashboardSidebar: Setting final profile from database", {
+            userId: sessionUser.id,
+            name: finalName,
+            hasImage: !!profileImage,
+            role: user.role,
+          });
+
           setUserProfile(profile);
+          setIsLoading(false);
           
-          // Update cache in sessionStorage
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem('userProfile', JSON.stringify(profile));
-          }
+          // No sessionStorage - data comes from server-side props (secure)
+        } else if (mounted) {
+          setIsLoading(false);
         }
       } catch (error) {
         console.error("UserDashboardSidebar: Error fetching profile", error);
@@ -256,23 +277,29 @@ export function UserDashboardSidebar({ isOpen = false, onClose }: UserDashboardS
 
     fetchUserProfile();
 
-    // Safety timeout - force loading to false after 3 seconds
+    // Safety timeout - force loading to false after 8 seconds
     // This ensures we don't show "Loading..." forever
+    // Use initialUserProfile if available, otherwise default
     const safetyTimeout = setTimeout(() => {
       if (mounted) {
         setUserProfile((current) => {
           if (!current) {
-            console.warn("UserDashboardSidebar: Safety timeout - setting default profile");
-            return {
-              name: "User",
-              image: null,
-            };
+            if (initialUserProfile) {
+              console.log("UserDashboardSidebar: Safety timeout - using initialUserProfile");
+              return { name: initialUserProfile.name, image: initialUserProfile.image };
+            } else {
+              console.warn("UserDashboardSidebar: Safety timeout - setting default profile");
+              return {
+                name: "User",
+                image: null,
+              };
+            }
           }
           return current;
         });
         setIsLoading(false);
       }
-    }, 3000);
+    }, 8000); // 8 seconds - longer timeout for slower connections
 
     return () => {
       mounted = false;

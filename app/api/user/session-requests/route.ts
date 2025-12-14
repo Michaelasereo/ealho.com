@@ -63,12 +63,43 @@ export async function GET(request: NextRequest) {
         if (req.event_type_id) {
           const { data: eventType } = await supabaseAdmin
             .from("event_types")
-            .select("id, title, price, currency, length")
+            .select("id, title, price, currency, length, slug, active")
             .eq("id", req.event_type_id)
             .single();
           
           if (eventType) {
-            result.event_types = eventType;
+            // Filter out old/deleted event types
+            const oldSlugs = [
+              'free-trial-consultation',
+              '1-on-1-consultation-with-licensed-dietician'
+            ];
+            
+            // Only include if it's active and not an old event type
+            if (eventType.active && !oldSlugs.includes(eventType.slug)) {
+              result.event_types = eventType;
+            } else {
+              // If it's an old event type, try to map it to the new one
+              if (eventType.slug === '1-on-1-consultation-with-licensed-dietician') {
+                // Try to find the new event type for this dietitian
+                const { data: newEventType } = await supabaseAdmin
+                  .from("event_types")
+                  .select("id, title, price, currency, length")
+                  .eq("user_id", req.dietitian_id)
+                  .eq("slug", "1-on-1-nutritional-counselling-and-assessment")
+                  .eq("active", true)
+                  .single();
+                
+                if (newEventType) {
+                  result.event_types = newEventType;
+                } else {
+                  // Skip this request if we can't find a replacement
+                  result.skip = true;
+                }
+              } else {
+                // For free trial, skip the request
+                result.skip = true;
+              }
+            }
           }
         }
 
@@ -89,8 +120,11 @@ export async function GET(request: NextRequest) {
       })
     );
 
+    // Filter out requests that reference old/deleted event types
+    const validRequests = requestsWithRelations.filter((req: any) => !req.skip);
+    
     // Transform the data to match the expected format
-    const formattedRequests = (requestsWithRelations || []).map((req: any) => {
+    const formattedRequests = (validRequests || []).map((req: any) => {
       const request: any = {
         id: req.id,
         requestType: req.request_type,

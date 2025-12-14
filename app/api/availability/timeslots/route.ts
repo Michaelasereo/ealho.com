@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClientServer } from "@/lib/supabase/server";
-import { requireDietitianFromRequest } from "@/lib/auth-helpers";
+import { getCurrentUserFromRequest } from "@/lib/auth-helpers";
 import {
   calculateSlotsForDateRange,
   type AvailabilitySlot,
@@ -10,6 +10,7 @@ import {
 import { TimezoneHelper } from "@/lib/utils/timezone";
 
 // GET: Calculate available timeslots for a date range
+// Now allows both authenticated users and dietitians to query any dietitian's availability
 export async function GET(request: NextRequest) {
   console.log('🎯 [DEBUG] Timeslots API called with params:', {
     url: request.url,
@@ -21,42 +22,67 @@ export async function GET(request: NextRequest) {
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/47c98e00-030f-46e7-b782-5ff73cdaf6f4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'timeslots/route.ts:14',message:'API call started',data:{url:request.url},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
-    const dietitian = await requireDietitianFromRequest(request);
-    const dietitianId = dietitian.id;
-    
-    console.log('✅ [DEBUG] Dietitian authenticated:', {
-      dietitianId,
-      role: dietitian.role
-    });
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/47c98e00-030f-46e7-b782-5ff73cdaf6f4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'timeslots/route.ts:16',message:'Dietitian auth successful',data:{dietitianId,role:dietitian.role},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
 
     const { searchParams } = new URL(request.url);
     const startDateStr = searchParams.get("startDate");
     const endDateStr = searchParams.get("endDate");
     const durationMinutes = parseInt(searchParams.get("duration") || "30", 10);
-    const targetDietitianId = searchParams.get("dietitianId") || dietitianId;
+    const targetDietitianId = searchParams.get("dietitianId");
     const eventTypeId = searchParams.get("eventTypeId");
+    
+    // dietitianId is required for this endpoint
+    if (!targetDietitianId) {
+      return NextResponse.json(
+        { error: "dietitianId query parameter is required" },
+        { status: 400 }
+      );
+    }
+    
+    // Allow unauthenticated users to query availability for booking
+    // If authenticated, check if they're querying their own availability
+    const currentUser = await getCurrentUserFromRequest(request);
+    const dietitianId = (currentUser?.role === "DIETITIAN" && targetDietitianId === currentUser.id) 
+      ? currentUser.id 
+      : targetDietitianId;
+    
+    if (currentUser) {
+      console.log('✅ [DEBUG] User authenticated:', {
+        userId: currentUser.id,
+        role: currentUser.role
+      });
+    } else {
+      console.log('✅ [DEBUG] Unauthenticated request (public booking access)');
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/47c98e00-030f-46e7-b782-5ff73cdaf6f4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'timeslots/route.ts:16',message:'Request processed',data:{userId:currentUser?.id,role:currentUser?.role,isAuthenticated:!!currentUser},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     
     console.log('📋 [DEBUG] Parsed parameters:', {
       startDateStr,
       endDateStr,
       durationMinutes,
       targetDietitianId,
-      eventTypeId: eventTypeId || 'MISSING'
+      dietitianId,
+      eventTypeId: eventTypeId || 'MISSING',
+      userRole: currentUser?.role || 'unauthenticated'
     });
     
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/47c98e00-030f-46e7-b782-5ff73cdaf6f4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'timeslots/route.ts:22',message:'Query params extracted',data:{startDateStr,endDateStr,durationMinutes,targetDietitianId,eventTypeId:eventTypeId||'MISSING'},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/47c98e00-030f-46e7-b782-5ff73cdaf6f4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'timeslots/route.ts:22',message:'Query params extracted',data:{startDateStr,endDateStr,durationMinutes,targetDietitianId,dietitianId,eventTypeId:eventTypeId||'MISSING',userRole:currentUser?.role||'unauthenticated'},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
 
-    // Validate that the requesting dietitian can query their own availability
-    // (In the future, this could be opened to allow users to query any dietitian's availability)
-    if (targetDietitianId !== dietitianId) {
+    // Verify the target dietitian exists and is actually a dietitian
+    const supabaseAdmin = createAdminClientServer();
+    const { data: targetDietitian, error: dietitianError } = await supabaseAdmin
+      .from("users")
+      .select("id, role")
+      .eq("id", dietitianId)
+      .single();
+
+    if (dietitianError || !targetDietitian || targetDietitian.role !== "DIETITIAN") {
       return NextResponse.json(
-        { error: "You can only query your own availability" },
-        { status: 403 }
+        { error: "Dietitian not found" },
+        { status: 404 }
       );
     }
 
@@ -83,8 +109,6 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    const supabaseAdmin = createAdminClientServer();
 
     // Determine which schedule to use
     let scheduleIdToUse: string | null = null;

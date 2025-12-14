@@ -3,6 +3,19 @@ import { createClient } from "@/lib/supabase/server/client";
 import { createAdminClientServer } from "@/lib/supabase/server";
 import SessionRequestClient from "./SessionRequestClient";
 
+/**
+ * Session Request Page - Server Component
+ * 
+ * This page handles server-side authentication and authorization before
+ * rendering the client component. This ensures:
+ * - User is authenticated
+ * - User has DIETITIAN role
+ * - User account is ACTIVE
+ * - Profile data is available via AuthProvider context
+ * 
+ * RSC (React Server Component) requests are handled by middleware,
+ * which allows them to pass through without blocking.
+ */
 export default async function SessionRequestPage() {
   try {
     // 1. Check authentication (server-side)
@@ -64,9 +77,22 @@ export default async function SessionRequestPage() {
     }
 
     // Profile is now managed by AuthProvider context via dashboard layout
+    // The layout fetches profile server-side and initializes AuthProvider
     return <SessionRequestClient />;
   } catch (error) {
-    console.error("Session Request: Server error", error);
+    // Log full error details for debugging
+    console.error("Session Request: Server error", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
+    
+    // Re-throw to trigger error boundary if it's an RSC fetch error
+    // Otherwise redirect to login
+    if (error instanceof Error && error.message.includes('fetch')) {
+      throw error; // Let error boundary handle it
+    }
+    
     redirect("/dietitian-login?redirect=/dashboard/session-request");
   }
 }

@@ -138,9 +138,12 @@ export function PaymentModal({
       return;
     }
 
+    // At this point, emailToUse is guaranteed to be a valid non-empty string
+    const validEmail = emailToUse as string;
+
     // Fallback name to email if no name available
     if (!nameToUse || nameToUse.trim().length === 0) {
-      nameToUse = emailToUse.split("@")[0] || "User";
+      nameToUse = validEmail.split("@")[0] || "User";
     }
 
     try {
@@ -154,7 +157,7 @@ export function PaymentModal({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: emailToUse,
+          email: validEmail,
           amount: amount * 100, // Paystack expects amount in kobo
           name: nameToUse,
           bookingId: bookingId || requestId || undefined, // Use bookingId if available

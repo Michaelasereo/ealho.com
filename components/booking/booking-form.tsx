@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -14,31 +13,56 @@ interface BookingFormProps {
     description?: string;
     length: number;
     price: number;
+    currency?: string;
   };
-  selectedDate: Date;
-  selectedTime: string;
+  selectedDate?: Date;
+  selectedTime?: string;
   onSubmit: (data: {
-    name: string;
-    email: string;
-    phone?: string;
-    notes?: string;
+    age?: number;
+    occupation?: string;
+    medicalCondition?: string;
+    monthlyFoodBudget?: number;
+    complaint?: string;
   }) => void;
   isLoading?: boolean;
+  initialAge?: number;
+  initialOccupation?: string;
+  initialMedicalCondition?: string;
+  initialMonthlyFoodBudget?: number;
 }
 
 export function BookingForm({
   eventType,
-  selectedDate,
-  selectedTime,
   onSubmit,
   isLoading,
+  initialAge,
+  initialOccupation,
+  initialMedicalCondition,
+  initialMonthlyFoodBudget,
 }: BookingFormProps) {
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    notes: "",
+    age: initialAge || undefined,
+    occupation: initialOccupation || "",
+    medicalCondition: initialMedicalCondition || "",
+    monthlyFoodBudget: initialMonthlyFoodBudget || undefined,
+    complaint: "",
   });
+
+  // Update form data when initial values change (e.g., from profile)
+  useEffect(() => {
+    if (initialAge !== undefined) {
+      setFormData(prev => ({ ...prev, age: initialAge }));
+    }
+    if (initialOccupation) {
+      setFormData(prev => ({ ...prev, occupation: initialOccupation }));
+    }
+    if (initialMedicalCondition) {
+      setFormData(prev => ({ ...prev, medicalCondition: initialMedicalCondition }));
+    }
+    if (initialMonthlyFoodBudget !== undefined) {
+      setFormData(prev => ({ ...prev, monthlyFoodBudget: initialMonthlyFoodBudget }));
+    }
+  }, [initialAge, initialOccupation, initialMedicalCondition, initialMonthlyFoodBudget]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,71 +70,98 @@ export function BookingForm({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{eventType.title}</CardTitle>
-        <CardDescription>{eventType.description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="John Doe"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="john@example.com"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone (Optional)</Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="+234 800 000 0000"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="notes">Additional Notes (Optional)</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Any special requirements or information..."
-              rows={4}
-            />
-          </div>
-          <div className="pt-4 border-t border-[#e5e7eb]">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-sm text-[#6b7280]">Duration</span>
-              <span className="font-medium">{eventType.length} minutes</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-[#6b7280]">Price</span>
-              <span className="text-xl font-semibold">
-                ₦{eventType.price.toLocaleString()}
-              </span>
-            </div>
-          </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Processing..." : "Continue to Payment"}
+    <div className="space-y-6">
+      <h2 className="text-xl font-semibold text-[#f9fafb]">Enter your information</h2>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="age" className="text-[#f9fafb]">
+            Age <span className="text-red-500">*</span>
+          </Label>
+          <Input
+            id="age"
+            type="number"
+            required
+            value={formData.age || ""}
+            onChange={(e) => setFormData({ ...formData, age: e.target.value ? parseInt(e.target.value) : undefined })}
+            placeholder="Enter your age"
+            className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] placeholder:text-[#6b7280] focus:border-[#404040]"
+            min="1"
+            max="120"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="occupation" className="text-[#f9fafb]">
+            Occupation <span className="text-red-500">*</span>
+          </Label>
+          <Input
+            id="occupation"
+            type="text"
+            required
+            value={formData.occupation}
+            onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
+            placeholder="Enter your occupation"
+            className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] placeholder:text-[#6b7280] focus:border-[#404040]"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="medicalCondition" className="text-[#f9fafb]">
+            Medical Condition <span className="text-red-500">*</span>
+          </Label>
+          <Textarea
+            id="medicalCondition"
+            required
+            value={formData.medicalCondition}
+            onChange={(e) => setFormData({ ...formData, medicalCondition: e.target.value })}
+            placeholder="Any medical conditions or health concerns..."
+            rows={4}
+            className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] placeholder:text-[#6b7280] focus:border-[#404040] resize-none"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="monthlyFoodBudget" className="text-[#f9fafb]">
+            Monthly Food Budget (NGN) <span className="text-red-500">*</span>
+          </Label>
+          <Input
+            id="monthlyFoodBudget"
+            type="number"
+            required
+            value={formData.monthlyFoodBudget || ""}
+            onChange={(e) => setFormData({ ...formData, monthlyFoodBudget: e.target.value ? parseFloat(e.target.value) : undefined })}
+            placeholder="Enter your monthly food budget"
+            className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] placeholder:text-[#6b7280] focus:border-[#404040]"
+            min="0"
+            step="1000"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="complaint" className="text-[#f9fafb]">
+            Complaint / Additional Notes <span className="text-red-500">*</span>
+          </Label>
+          <Textarea
+            id="complaint"
+            required
+            value={formData.complaint}
+            onChange={(e) => setFormData({ ...formData, complaint: e.target.value })}
+            placeholder="Tell us about your concerns, goals, or any special requirements..."
+            rows={4}
+            className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] placeholder:text-[#6b7280] focus:border-[#404040] resize-none"
+          />
+        </div>
+
+        <div className="flex justify-end pt-4">
+          <Button 
+            type="submit" 
+            className="bg-white hover:bg-gray-100 text-black px-6 py-2 font-medium" 
+            disabled={isLoading}
+          >
+            {isLoading ? "Processing..." : "Continue"}
           </Button>
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+      </form>
+    </div>
   );
 }

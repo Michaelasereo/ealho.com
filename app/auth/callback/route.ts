@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server/client";
 import { createAdminClient } from "@/lib/supabase/server/admin";
 import { authRateLimit } from "@/lib/rate-limit";
 import { determineUserRedirect } from "@/lib/utils/determine-user-redirect";
-import { getUserRoleWithRetry } from "@/lib/utils/auth-utils";
+import { getUserRoleWithRetry, normalizeRole } from "@/lib/utils/auth-utils";
 import { ADMIN_EMAIL } from "@/lib/auth/config";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +21,9 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   // Use NEXT_PUBLIC_SITE_URL if available (for production), otherwise use request origin
+  // Trim any whitespace to prevent URL parsing errors
   const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL 
-    ? new URL(process.env.NEXT_PUBLIC_SITE_URL).origin 
+    ? new URL(process.env.NEXT_PUBLIC_SITE_URL.trim()).origin 
     : requestUrl.origin;
   const { code, error: oauthError, error_description } = Object.fromEntries(requestUrl.searchParams);
 
@@ -67,21 +68,52 @@ export async function GET(request: NextRequest) {
     }
 
     // STEP 3: Create Supabase client and exchange code for session
-    const supabase = await createClient();
-    const supabaseAdmin = createAdminClient();
+    let supabase;
+    let supabaseAdmin;
+    
+    try {
+      supabase = await createClient();
+      supabaseAdmin = createAdminClient();
+    } catch (clientError: any) {
+      console.error("AuthCallbackClientCreationError", {
+        error: clientError?.message || "Failed to create Supabase client",
+        stack: clientError?.stack,
+        timestamp: new Date().toISOString(),
+      });
+      throw new Error(`Failed to initialize authentication client: ${clientError?.message || "Unknown error"}`);
+    }
 
     console.info("AuthCallbackExchangingCode", {
       timestamp: new Date().toISOString(),
       hasCode: !!code,
+      codeLength: code?.length || 0,
     });
 
     // THIS IS THE MAGIC - Exchange code for session
-    const { data: { session }, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    let session;
+    let exchangeError;
+    
+    try {
+      const result = await supabase.auth.exchangeCodeForSession(code);
+      session = result.data?.session;
+      exchangeError = result.error;
+    } catch (exchangeException: any) {
+      console.error("AuthCallbackExchangeException", {
+        error: exchangeException?.message,
+        errorName: exchangeException?.name,
+        errorCode: exchangeException?.code || exchangeException?.status,
+        stack: exchangeException?.stack,
+        timestamp: new Date().toISOString(),
+      });
+      throw new Error(`Code exchange failed: ${exchangeException?.message || "Unknown error"}`);
+    }
 
     if (exchangeError) {
       console.error("AuthCallbackSessionError", {
         error: exchangeError.message,
-        errorCode: exchangeError.status,
+        errorCode: exchangeError.status || exchangeError.code,
+        errorName: exchangeError.name,
+        errorDetails: exchangeError,
         timestamp: new Date().toISOString(),
       });
       throw exchangeError;
@@ -248,16 +280,42 @@ export async function GET(request: NextRequest) {
     
     if (dbUser?.role) {
       finalRole = dbUser.role;
+      console.info("AuthCallbackFinalRoleFromDbUser", {
+        userId: user.id,
+        role: finalRole,
+        dbUserRole: dbUser.role,
+        timestamp: new Date().toISOString(),
+      });
     } else {
       // Last resort: use retry logic to get role
-      const { role: retryRole } = await getUserRoleWithRetry(
+      const { role: retryRole, error: retryError } = await getUserRoleWithRetry(
         supabaseAdmin,
         user.id,
         3,
         500
       );
       finalRole = retryRole || "USER";
+      console.info("AuthCallbackFinalRoleFromRetry", {
+        userId: user.id,
+        role: finalRole,
+        retryRole,
+        retryError,
+        timestamp: new Date().toISOString(),
+      });
     }
+    
+    // Normalize the role to ensure consistency
+    finalRole = normalizeRole(finalRole);
+    
+    console.info("AuthCallbackRoleDetermined", {
+      userId: user.id,
+      email: user.email,
+      finalRole,
+      cameFromDietitianLogin,
+      cameFromDietitianEnrollment,
+      source,
+      timestamp: new Date().toISOString(),
+    });
 
     // Handle dietitian enrollment flow: if user is already DIETITIAN, redirect to dashboard
     if (cameFromDietitianEnrollment && finalRole === "DIETITIAN") {
@@ -286,13 +344,59 @@ export async function GET(request: NextRequest) {
       response.headers.set("X-Auth-Status", "success");
       return response;
     }
+
+    // If came from dietitian-login and user IS a DIETITIAN, redirect to dashboard immediately
+    // This prevents race conditions with determineUserRedirect
+    if (cameFromDietitianLogin && finalRole === "DIETITIAN") {
+      console.info("AuthCallbackDietitianLoginSuccess", {
+        userId: user.id,
+        role: finalRole,
+        source,
+        timestamp: new Date().toISOString(),
+      });
+      const redirectTo = "/dashboard";
+      const response = NextResponse.redirect(new URL(redirectTo, siteOrigin));
+      response.headers.set("X-Auth-Status", "success");
+      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+      response.headers.set(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+      );
+      response.headers.set("Pragma", "no-cache");
+      response.headers.set("Expires", "0");
+      return response;
+    }
     
     // Otherwise, use normal redirect logic (handles DIETITIAN, ADMIN, and USER roles correctly)
+    // If user is DIETITIAN, ensure they go to /dashboard regardless of source
+    if (finalRole === "DIETITIAN") {
+      console.info("AuthCallbackDietitianDetected", {
+        userId: user.id,
+        email: user.email,
+        finalRole,
+        cameFromDietitianLogin,
+        source,
+        timestamp: new Date().toISOString(),
+      });
+      const redirectTo = "/dashboard";
+      const response = NextResponse.redirect(new URL(redirectTo, siteOrigin));
+      response.headers.set("X-Auth-Status", "success");
+      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+      response.headers.set(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+      );
+      response.headers.set("Pragma", "no-cache");
+      response.headers.set("Expires", "0");
+      return response;
+    }
+    
     const redirectTo = await determineUserRedirect(user.id);
 
     console.info("AuthCallbackSuccess", {
       userId: user.id,
       email: user.email,
+      finalRole,
       redirectTo,
       timestamp: new Date().toISOString(),
     });
@@ -332,22 +436,47 @@ export async function GET(request: NextRequest) {
     return response;
 
   } catch (error: any) {
-    console.error("AuthCallbackFatalError", {
+    // Enhanced error logging with more details
+    const errorDetails = {
       error: error instanceof Error ? error.message : "Unknown error",
+      errorName: error instanceof Error ? error.name : typeof error,
+      errorCode: error?.code || error?.status || error?.error_code,
+      errorMessage: error?.msg || error?.message,
       stack: error instanceof Error ? error.stack : undefined,
+      fullError: error ? JSON.stringify(error, Object.getOwnPropertyNames(error)) : "No error object",
       timestamp: new Date().toISOString(),
       url: requestUrl.toString(),
-    });
+      hasCode: !!code,
+      codeLength: code?.length || 0,
+    };
+
+    console.error("AuthCallbackFatalError", errorDetails);
+
+    // Check if this is a Supabase error with specific error codes
+    if (error?.code || error?.status) {
+      console.error("AuthCallbackSupabaseError", {
+        code: error.code || error.status,
+        message: error.message || error.msg,
+        details: error.details,
+        hint: error.hint,
+      });
+    }
 
     // Redirect to error page with sanitized error
     const errorUrl = new URL("/auth/error", siteOrigin);
     errorUrl.searchParams.set("type", "callback_error");
+    
+    // Add error code if available for better debugging
+    if (error?.code || error?.status) {
+      errorUrl.searchParams.set("code", String(error.code || error.status));
+    }
 
     const response = NextResponse.redirect(errorUrl);
     response.cookies.set({
       name: "auth_error",
       value: JSON.stringify({
         message: "Authentication failed",
+        errorCode: error?.code || error?.status,
         timestamp: new Date().toISOString(),
       }),
       httpOnly: true,

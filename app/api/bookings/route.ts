@@ -121,6 +121,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Automatically create meal plan request if this is the meal plan event type
+    if (eventType.slug === '1-on-1-nutritional-counselling-and-assessment-meal-plan') {
+      try {
+        const { error: mealPlanRequestError } = await supabaseAdmin
+          .from("session_requests")
+          .insert({
+            request_type: "MEAL_PLAN",
+            client_name: user.name || name,
+            client_email: user.email || email,
+            dietitian_id: dietitian_id || eventType.user_id,
+            meal_plan_type: "7-day",
+            price: 10000,
+            currency: "NGN",
+            status: "PENDING",
+            message: "Auto-created from booking: " + eventType.title,
+          });
+
+        if (mealPlanRequestError) {
+          console.error("Error creating automatic meal plan request:", mealPlanRequestError);
+          // Don't fail the booking if meal plan request creation fails
+        } else {
+          console.log(`Automatic meal plan request created for booking ${booking.id}`);
+        }
+      } catch (mealPlanError) {
+        console.error("Error creating automatic meal plan request:", mealPlanError);
+        // Don't fail the booking if meal plan request creation fails
+      }
+    }
+
     // Create payment record if paystackRef or paymentData is provided
     if (paystackRef || paymentData) {
       await supabaseAdmin.from("payments").insert({

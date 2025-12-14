@@ -72,14 +72,42 @@ export function CreateSessionRequestModal({
   useEffect(() => {
     const fetchEventTypes = async () => {
       try {
-        const response = await fetch("/api/event-types", {
+        const response = await fetch(`/api/event-types?_t=${Date.now()}`, {
           credentials: "include",
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
         });
         if (response.ok) {
           const data = await response.json();
-          setEventTypes(data.eventTypes || []);
-          if (data.eventTypes && data.eventTypes.length > 0) {
-            setEventTypeId(data.eventTypes[0].id);
+          // Filter out old/deleted event types
+          const oldSlugs = [
+            'free-trial-consultation',
+            '1-on-1-consultation-with-licensed-dietician'
+          ];
+          
+          const filteredEventTypes = (data.eventTypes || []).filter((et: any) => {
+            // Must be active
+            if (!et.active) return false;
+            
+            // Exclude old event types by slug
+            if (oldSlugs.includes(et.slug)) return false;
+            
+            // Exclude by title keywords (safety check)
+            const titleLower = et.title.toLowerCase();
+            if (titleLower.includes('free trial') || 
+                titleLower.includes('free-trial') ||
+                (titleLower.includes('licensed dietician') && !titleLower.includes('nutritional'))) {
+              return false;
+            }
+            
+            return true;
+          });
+          
+          setEventTypes(filteredEventTypes);
+          if (filteredEventTypes.length > 0) {
+            setEventTypeId(filteredEventTypes[0].id);
           }
         }
       } catch (err) {
