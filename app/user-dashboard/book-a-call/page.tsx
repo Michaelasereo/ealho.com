@@ -979,10 +979,7 @@ function BookACallPageContent() {
       }
     }
 
-    // Complaint/Additional Notes validation
-    if (!formData.complaint || formData.complaint.trim() === "") {
-      errors.complaint = "Complaint/Additional notes is required";
-    }
+    // Complaint/Additional Notes is optional - no validation needed
 
     return errors;
   };
@@ -1532,24 +1529,16 @@ function BookACallPageContent() {
                       
                       <div>
                         <label className="block text-sm font-medium text-[#D4D4D4] mb-2">
-                          Complaint / Additional Notes <span className="text-red-400">*</span>
+                          Additional Notes <span className="text-[#6b7280]">(Optional)</span>
                         </label>
                         <Textarea
                           value={formData.complaint}
                           onChange={(e) => {
                             setFormData({ ...formData, complaint: e.target.value });
-                            if (validationErrors.complaint) {
-                              setValidationErrors(prev => {
-                                const newErrors = { ...prev };
-                                delete newErrors.complaint;
-                                return newErrors;
-                              });
-                            }
                           }}
                           rows={4}
-                          className={`bg-[#0a0a0a] border-[#262626] text-[#f9fafb] ${validationErrors.complaint ? 'border-red-500' : ''}`}
+                          className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb]"
                           placeholder="Tell us about your concerns, goals, or any special requirements..."
-                          required
                         />
                         {validationErrors.complaint && (
                           <p className="text-xs text-red-400 mt-1">{validationErrors.complaint}</p>

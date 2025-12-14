@@ -20,10 +20,14 @@ export async function POST(request: NextRequest) {
 
     // Get email from authenticated session (OAuth details)
     const cookieStore = request.cookies;
+    const allCookies = cookieStore.getAll();
+    console.log("[Paystack Init] Cookie count:", allCookies.length);
+    console.log("[Paystack Init] Supabase cookies:", allCookies.filter(c => c.name.includes('sb-') || c.name.includes('supabase')).map(c => c.name));
+    
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          return allCookies;
         },
         setAll() {
           // Cookies are handled by response
@@ -33,9 +37,16 @@ export async function POST(request: NextRequest) {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
+    console.log("[Paystack Init] Auth result:", { 
+      hasUser: !!user, 
+      email: user?.email,
+      authError: authError?.message 
+    });
+    
     if (authError || !user || !user.email) {
+      console.error("[Paystack Init] Auth failed:", { authError: authError?.message, hasUser: !!user, hasEmail: !!user?.email });
       return NextResponse.json(
-        { error: "Authentication required. Please ensure you are logged in." },
+        { error: "Authentication required. Please ensure you are logged in.", details: authError?.message },
         { status: 401 }
       );
     }
