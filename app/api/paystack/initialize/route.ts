@@ -2,9 +2,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { createServerClient } from "@supabase/ssr";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,11 +18,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { bookingId, amount, email, name, metadata } = await request.json();
+    // Get email from authenticated session (OAuth details)
+    const cookieStore = request.cookies;
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll() {
+          // Cookies are handled by response
+        },
+      },
+    });
 
-    if (!amount || !email) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user || !user.email) {
       return NextResponse.json(
-        { error: "amount and email are required" },
+        { error: "Authentication required. Please ensure you are logged in." },
+        { status: 401 }
+      );
+    }
+
+    // Use email from authenticated session (OAuth)
+    const email = user.email;
+    const name = user.user_metadata?.name || 
+                 user.user_metadata?.full_name || 
+                 user.email?.split("@")[0] || 
+                 "User";
+
+    const { bookingId, amount, metadata } = await request.json();
+
+    if (!amount) {
+      return NextResponse.json(
+        { error: "amount is required" },
         { status: 400 }
       );
     }
@@ -37,13 +69,13 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        email,
+        email, // From authenticated session (OAuth)
         amount: amount, // Already in kobo from client
         currency: "NGN",
         callback_url: callbackUrl, // Redirect back after payment
         metadata: {
           bookingId: bookingId || undefined,
-          name: name || undefined,
+          name: name, // From authenticated session (OAuth)
           ...metadata, // Merge additional metadata
         },
       }),

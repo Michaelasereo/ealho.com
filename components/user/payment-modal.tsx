@@ -151,15 +151,16 @@ export function PaymentModal({
       setError(null);
 
       // Initialize payment via our API (avoids CORS issues)
+      // Email and name are retrieved from authenticated session on server
       const response = await fetch("/api/paystack/initialize", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: validEmail,
+          // Email and name are retrieved from authenticated session (OAuth) on server
           amount: amount * 100, // Paystack expects amount in kobo
-          name: nameToUse,
           bookingId: bookingId || requestId || undefined, // Use bookingId if available
           metadata: {
             requestId: requestId || "",
@@ -224,18 +225,6 @@ export function PaymentModal({
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-[#9ca3af]">{description}</span>
-              </div>
-              <div className="flex justify-between text-sm pt-2">
-                <span className="text-[#9ca3af]">Name</span>
-                <span className="text-[#f9fafb]">
-                  {isLoadingUserData ? "Loading..." : (finalName || userName || "N/A")}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-[#9ca3af]">Email</span>
-                <span className="text-[#f9fafb]">
-                  {isLoadingUserData ? "Loading..." : (finalEmail || userEmail || "N/A")}
-                </span>
               </div>
               <div className="border-t border-[#262626] pt-2 mt-2">
                 <div className="flex justify-between items-center">

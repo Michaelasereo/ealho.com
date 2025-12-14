@@ -1010,47 +1010,30 @@ function BookACallPageContent() {
     } else {
       // For regular booking, create booking first, then open payment modal
       if (selectedDate && selectedTime && selectedDietician && selectedEventTypeId) {
-      // Validate email and name before proceeding
-      // Priority: formData > userProfile > session data
-      let finalEmail = formData.email || userProfile?.email || sessionEmail;
-      let finalName = formData.name || userProfile?.name || sessionName;
-        
-        // Last resort: fetch email directly from session if still empty
-        if (!finalEmail) {
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user?.email) {
-              finalEmail = session.user.email;
-              console.log('📧 [DEBUG] Retrieved email from session as last resort:', finalEmail);
-            }
-          } catch (err) {
-            console.error("Error fetching session for email:", err);
+        // Get email and name from authenticated session (OAuth)
+        let finalEmail: string | null = null;
+        let finalName: string | null = null;
+
+        try {
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError || !session?.user?.email) {
+            alert("Please ensure you are logged in to complete payment.");
+            return;
           }
-        }
-        
-        if (!finalEmail) {
-          alert("Email is required for payment. Please ensure you are logged in and try again.");
+
+          finalEmail = session.user.email;
+          finalName = session.user.user_metadata?.name || 
+                     session.user.user_metadata?.full_name || 
+                     session.user.email?.split("@")[0] || 
+                     "User";
+        } catch (err) {
+          console.error("Error fetching session:", err);
+          alert("Failed to verify authentication. Please try again.");
           return;
         }
-        
-        // Last resort: fetch name directly from session if still empty
-        if (!finalName) {
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-              finalName = session.user.user_metadata?.name || 
-                         session.user.user_metadata?.full_name || 
-                         session.user.email?.split("@")[0] || 
-                         "User";
-              console.log('👤 [DEBUG] Retrieved name from session as last resort:', finalName);
-            }
-          } catch (err) {
-            console.error("Error fetching session for name:", err);
-          }
-        }
-        
-        if (!finalName) {
-          alert("Name is required for payment. Please enter your name.");
+
+        if (!finalEmail) {
+          alert("Email is required for payment. Please ensure you are logged in and try again.");
           return;
         }
 
@@ -1094,17 +1077,18 @@ function BookACallPageContent() {
             });
             
             // Initialize Paystack payment and redirect
+            // Email and name are now retrieved from authenticated session on the server
             try {
               const paymentResponse = await fetch("/api/paystack/initialize", {
                 method: "POST",
+                credentials: "include",
                 headers: {
                   "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
                   bookingId,
                   amount: eventTypePrice * 100, // Convert to kobo
-                  email: finalEmail,
-                  name: finalName,
+                  // Email and name are retrieved from authenticated session on server
                   metadata: {
                     requestId: prefillRequestId || "",
                     requestType: "CONSULTATION",
@@ -1122,11 +1106,12 @@ function BookACallPageContent() {
                   throw new Error("No payment URL received");
                 }
               } else {
-                throw new Error("Failed to initialize payment");
+                const errorData = await paymentResponse.json().catch(() => ({}));
+                throw new Error(errorData.error || "Failed to initialize payment");
               }
             } catch (paymentErr) {
               console.error("Payment initialization error:", paymentErr);
-              alert("Failed to initialize payment. Please try again.");
+              alert(paymentErr instanceof Error ? paymentErr.message : "Failed to initialize payment. Please try again.");
             }
           } else {
             const errorData = await bookingResponse.json().catch(() => ({}));
@@ -2017,12 +2002,6 @@ function BookACallPageContent() {
                       <span className="text-[#9ca3af]">Duration</span>
                       <span className="text-[#f9fafb]">
                         {eventTypes.find(et => et.id === selectedEventTypeId)?.length || 45} minutes
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#9ca3af]">Email</span>
-                      <span className="text-[#f9fafb]">
-                        {sessionEmail || userEmail || formData.email || userProfile?.email || "N/A"}
                       </span>
                     </div>
                     {formData.age && (
