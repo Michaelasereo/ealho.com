@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       .from("payments")
       .update({ status: "SUCCESS" })
       .eq("id", payment.id)
-      .select()
+      .select("*, booking_id")
       .single();
 
     if (updateError) {
@@ -108,7 +108,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ payment: updatedPayment });
+    // Fetch the updated booking to include in response
+    let updatedBooking = null;
+    if (payment.booking_id) {
+      const { data: bookingData } = await supabaseAdmin
+        .from("bookings")
+        .select("*")
+        .eq("id", payment.booking_id)
+        .single();
+      updatedBooking = bookingData;
+    }
+    
+    return NextResponse.json({ 
+      payment: updatedPayment,
+      booking: updatedBooking
+    });
   } catch (error: any) {
     console.error("Error verifying payment:", error);
     return NextResponse.json(

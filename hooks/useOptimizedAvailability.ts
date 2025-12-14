@@ -28,6 +28,9 @@ export function useOptimizedAvailability({
   const lastFetchRef = useRef<number>(0);
   const consecutiveErrorsRef = useRef<number>(0);
   const isTabVisibleRef = useRef<boolean>(true);
+  const lastCacheKeyRef = useRef<string>('');
+  const fetchAvailabilityRef = useRef<((skipCache?: boolean) => Promise<void>) | undefined>(undefined);
+  const getNextPollIntervalRef = useRef<(() => number) | undefined>(undefined);
 
   // Exponential backoff with jitter
   const getNextPollInterval = useCallback(() => {
@@ -156,7 +159,7 @@ export function useOptimizedAvailability({
         const now = Date.now();
         // Only refresh if it's been more than 2 minutes since last fetch
         if (now - lastFetchRef.current > 120000) {
-          fetchAvailability(true);
+          fetchAvailabilityRef.current?.(true);
         }
       }
     };
@@ -165,15 +168,23 @@ export function useOptimizedAvailability({
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchAvailability]);
+  }, []);
 
-  // Smart polling setup - only poll when tab is visible
+  // Store latest function references in refs
   useEffect(() => {
-    if (!enabled || !dietitianId || !startDate || !endDate) return;
+    fetchAvailabilityRef.current = fetchAvailability;
+    getNextPollIntervalRef.current = getNextPollInterval;
+  }, [fetchAvailability, getNextPollInterval]);
 
-    // Load from cache immediately on mount
-    if (typeof window !== "undefined") {
-      const cacheKey = `availability_timeslots_${dietitianId}_${eventTypeId || 'default'}`;
+  // Load from cache when cache key changes (dietitianId or eventTypeId)
+  useEffect(() => {
+    if (!dietitianId) return;
+    
+    const cacheKey = `availability_timeslots_${dietitianId}_${eventTypeId || 'default'}`;
+    
+    // Only load from cache if cache key has changed
+    if (typeof window !== "undefined" && cacheKey !== lastCacheKeyRef.current) {
+      lastCacheKeyRef.current = cacheKey;
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         try {
@@ -188,17 +199,22 @@ export function useOptimizedAvailability({
         }
       }
     }
+  }, [dietitianId, eventTypeId]);
+
+  // Smart polling setup - only poll when tab is visible
+  useEffect(() => {
+    if (!enabled || !dietitianId || !startDate || !endDate) return;
 
     const poll = () => {
       // Only poll if tab is visible
       if (isTabVisibleRef.current) {
-        fetchAvailability();
+        fetchAvailabilityRef.current?.();
         
         // Schedule next poll with dynamic interval
         if (pollIntervalRef.current) {
           clearTimeout(pollIntervalRef.current);
         }
-        pollIntervalRef.current = setTimeout(poll, getNextPollInterval());
+        pollIntervalRef.current = setTimeout(poll, getNextPollIntervalRef.current?.() || 30000);
       } else {
         // Tab is hidden, check back in 30 seconds
         if (pollIntervalRef.current) {
@@ -209,15 +225,15 @@ export function useOptimizedAvailability({
     };
 
     // Initial fetch (but use cache first)
-    fetchAvailability();
-    pollIntervalRef.current = setTimeout(poll, getNextPollInterval());
+    fetchAvailabilityRef.current?.();
+    pollIntervalRef.current = setTimeout(poll, getNextPollIntervalRef.current?.() || 30000);
 
     return () => {
       if (pollIntervalRef.current) {
         clearTimeout(pollIntervalRef.current);
       }
     };
-  }, [dietitianId, eventTypeId, startDate, endDate, enabled, fetchAvailability, getNextPollInterval]);
+  }, [dietitianId, eventTypeId, startDate, endDate, enabled]);
 
   return { data, isLoading, error, refetch: fetchAvailability };
 }

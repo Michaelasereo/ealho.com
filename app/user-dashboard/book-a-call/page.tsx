@@ -142,6 +142,11 @@ function BookACallPageContent() {
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
   const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
   const [isLoadingDates, setIsLoadingDates] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [bookingForPayment, setBookingForPayment] = useState<{
+    id: string;
+    description: string;
+  } | null>(null);
   // Initialize availableDates from cache if available
   const [availableDates, setAvailableDates] = useState<string[]>(() => {
     // Try to load from cache on mount if dietitian is already selected
@@ -622,10 +627,10 @@ function BookACallPageContent() {
           if (session?.user?.email) {
             const email = session.user.email;
             console.log('📧 [DEBUG] Force-setting email from authenticated session for order summary:', email);
-            // FORCE update ALL email sources regardless of current values
-            setSessionEmail(email);
-            setUserEmail(email);
-            setFormData(prev => ({ ...prev, email: email }));
+            // Only update if values are different to prevent infinite loops
+            setSessionEmail(prev => prev !== email ? email : prev);
+            setUserEmail(prev => prev !== email ? email : prev);
+            setFormData(prev => prev.email !== email ? { ...prev, email: email } : prev);
           } else {
             console.warn('⚠️ [DEBUG] No email in session for order summary');
           }
@@ -661,64 +666,100 @@ function BookACallPageContent() {
             if (response.ok) {
               const data = await response.json();
               const payment = data.payment;
+              const booking = data.booking; // Now included in verify response
               
-              if (payment?.booking_id) {
-                // Fetch booking details
+              if (booking) {
+                // Find dietitian name (use fetched dietitians or fetch if needed)
+                let dietitianDisplayName = "";
+                if (dietitians.length > 0) {
+                  dietitianDisplayName = dietitians.find((d) => d.id === booking.dietitian_id)?.name || "";
+                }
+                
+                // Find event type duration
+                let duration = "45m";
+                if (eventTypes.length > 0) {
+                  const eventType = eventTypes.find(et => et.id === booking.event_type_id);
+                  duration = `${eventType?.length || 45}m`;
+                }
+                
+                // Parse date using dayjs to avoid timezone issues
+                const bookingDate = dayjs(booking.start_time);
+                
+                // Set booking details for success screen
+                setBookingDetails({
+                  id: booking.id,
+                  date: bookingDate.toDate(),
+                  time: bookingDate.format("HH:mm"),
+                  dietician: dietitianDisplayName,
+                  duration: duration,
+                  meetingLink: booking.meeting_link || "",
+                });
+                
+                // Set payment data
+                setPaymentData({
+                  amount: payment?.amount || eventTypePrice,
+                  currency: payment?.currency || "NGN",
+                });
+                
+                // Navigate to success screen (step 7)
+                setStep(7);
+                
+                // Clean URL (use setTimeout to avoid hydration issues)
+                setTimeout(() => {
+                  router.replace("/user-dashboard/book-a-call", { scroll: false });
+                }, 100);
+              } else if (payment?.booking_id) {
+                // Fallback: fetch booking separately if not in response
                 const bookingResponse = await fetch(`/api/bookings/${payment.booking_id}`, {
                   credentials: "include",
                 });
 
                 if (bookingResponse.ok) {
                   const bookingData = await bookingResponse.json();
-                  const booking = bookingData.booking;
+                  const fetchedBooking = bookingData.booking;
                   
-                  if (!booking) {
+                  if (!fetchedBooking) {
                     console.error("Booking not found in response");
                     return;
                   }
                   
-                  // Find dietitian name (use fetched dietitians or fetch if needed)
-                  let dietitianName = "";
+                  let dietitianDisplayName = "";
                   if (dietitians.length > 0) {
-                    dietitianName = dietitians.find((d) => d.id === booking.dietitian_id)?.name || "";
+                    dietitianDisplayName = dietitians.find((d) => d.id === fetchedBooking.dietitian_id)?.name || "";
                   }
                   
-                  // Find event type duration
                   let duration = "45m";
                   if (eventTypes.length > 0) {
-                    const eventType = eventTypes.find(et => et.id === booking.event_type_id);
+                    const eventType = eventTypes.find(et => et.id === fetchedBooking.event_type_id);
                     duration = `${eventType?.length || 45}m`;
                   }
                   
-                  // Parse date using dayjs to avoid timezone issues
-                  const bookingDate = dayjs(booking.start_time);
+                  const bookingDate = dayjs(fetchedBooking.start_time);
                   
-                  // Set booking details for success screen
                   setBookingDetails({
-                    id: booking.id,
+                    id: fetchedBooking.id,
                     date: bookingDate.toDate(),
                     time: bookingDate.format("HH:mm"),
-                    dietician: dietitianName,
+                    dietician: dietitianDisplayName,
                     duration: duration,
-                    meetingLink: booking.meeting_link || "",
+                    meetingLink: fetchedBooking.meeting_link || "",
                   });
                   
-                  // Set payment data
                   setPaymentData({
                     amount: payment.amount || eventTypePrice,
                     currency: payment.currency || "NGN",
                   });
                   
-                  // Navigate to success screen (step 7)
                   setStep(7);
                   
-                  // Clean URL (use setTimeout to avoid hydration issues)
                   setTimeout(() => {
                     router.replace("/user-dashboard/book-a-call", { scroll: false });
                   }, 100);
                 } else {
                   console.error("Failed to fetch booking:", await bookingResponse.text());
                 }
+              } else {
+                console.error("No booking found in payment verification response");
               }
             } else {
               console.error("Failed to verify payment:", await response.text());
@@ -1001,18 +1042,36 @@ function BookACallPageContent() {
   };
 
   const handleCheckoutClick = async () => {
-    if (isReschedule) {
+    // Prevent multiple clicks
+    if (isProcessingPayment) return;
+    
+    console.log('🔘 [DEBUG] Proceed to Payment clicked', {
+      isReschedule,
+      selectedDate,
+      selectedTime,
+      selectedDietician,
+      selectedEventTypeId
+    });
+    
+    setIsProcessingPayment(true);
+    
+    try {
+      if (isReschedule) {
       // For reschedule, skip payment and directly confirm
       handleRescheduleConfirmation();
     } else {
       // For regular booking, create booking first, then open payment modal
       if (selectedDate && selectedTime && selectedDietician && selectedEventTypeId) {
+        console.log('✅ [DEBUG] All required fields present, proceeding with booking...');
         // Get email and name from authenticated session (OAuth)
         let finalEmail: string | null = null;
         let finalName: string | null = null;
 
         try {
+          console.log('🔐 [DEBUG] Fetching session...');
           const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          console.log('🔐 [DEBUG] Session result:', { hasSession: !!session, hasEmail: !!session?.user?.email, error: sessionError });
+          
           if (sessionError || !session?.user?.email) {
             alert("Please ensure you are logged in to complete payment.");
             return;
@@ -1023,8 +1082,9 @@ function BookACallPageContent() {
                      session.user.user_metadata?.full_name || 
                      session.user.email?.split("@")[0] || 
                      "User";
+          console.log('✅ [DEBUG] Session data extracted:', { finalEmail, finalName });
         } catch (err) {
-          console.error("Error fetching session:", err);
+          console.error("❌ [DEBUG] Error fetching session:", err);
           alert("Failed to verify authentication. Please try again.");
           return;
         }
@@ -1036,31 +1096,66 @@ function BookACallPageContent() {
 
         try {
           // Create booking first (with PENDING status)
-          const bookingResponse = await fetch("/api/bookings", {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              dietitianId: selectedDietician,
-              eventTypeId: selectedEventTypeId || prefillEventTypeId,
-              startTime: new Date(`${dayjs(selectedDate).format("YYYY-MM-DD")}T${selectedTime}`).toISOString(),
-              name: finalName,
-              email: finalEmail,
-              notes: formData.complaint,
-              userAge: formData.age ? parseInt(formData.age) : null,
-              userOccupation: formData.occupation || null,
-              userMedicalCondition: formData.medicalCondition || null,
-              userMonthlyFoodBudget: formData.monthlyFoodBudget ? parseFloat(formData.monthlyFoodBudget) : null,
-              userComplaint: formData.complaint || null,
-              sessionRequestId: prefillRequestId,
-              // No payment data yet - will be added after payment
-            }),
+          console.log('📝 [DEBUG] Creating booking with data:', {
+            dietitianId: selectedDietician,
+            eventTypeId: selectedEventTypeId,
+            startTime: new Date(`${dayjs(selectedDate).format("YYYY-MM-DD")}T${selectedTime}`).toISOString(),
+            name: finalName,
+            email: finalEmail
           });
+          
+          // Add timeout to prevent indefinite hanging
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+          
+          let bookingResponse;
+          try {
+            bookingResponse = await fetch("/api/bookings", {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              signal: controller.signal,
+              body: JSON.stringify({
+                dietitianId: selectedDietician,
+                eventTypeId: selectedEventTypeId || prefillEventTypeId,
+                startTime: new Date(`${dayjs(selectedDate).format("YYYY-MM-DD")}T${selectedTime}`).toISOString(),
+                name: finalName,
+                email: finalEmail,
+                notes: formData.complaint,
+                userAge: formData.age ? parseInt(formData.age) : null,
+                userOccupation: formData.occupation || null,
+                userMedicalCondition: formData.medicalCondition || null,
+                userMonthlyFoodBudget: formData.monthlyFoodBudget ? parseFloat(formData.monthlyFoodBudget) : null,
+                userComplaint: formData.complaint || null,
+                sessionRequestId: prefillRequestId,
+                // No payment data yet - will be added after payment
+              }),
+            });
+            clearTimeout(timeoutId); // Clear timeout on success
+          } catch (fetchErr: any) {
+            clearTimeout(timeoutId);
+            
+            // Handle timeout specifically
+            if (fetchErr.name === 'AbortError') {
+              throw new Error("Request timed out. The server is taking too long to respond. Please check your connection and try again.");
+            }
+            
+            // Handle network errors
+            if (fetchErr.name === 'TypeError' && fetchErr.message.includes('fetch')) {
+              throw new Error("Network error. Please check your internet connection and try again.");
+            }
+            
+            // Re-throw other errors
+            throw fetchErr;
+          }
 
+          console.log('📡 [DEBUG] Booking response status:', bookingResponse.status);
+          
           if (bookingResponse.ok) {
             const bookingData = await bookingResponse.json();
+            console.log('✅ [DEBUG] Booking created:', bookingData);
             const bookingId = bookingData.booking?.id || `booking-${Date.now()}`;
             
             // Store booking ID for payment
@@ -1073,57 +1168,59 @@ function BookACallPageContent() {
               meetingLink: "",
             });
             
-            // Initialize Paystack payment and redirect
-            // Email and name are now retrieved from authenticated session on the server
-            try {
-              const paymentResponse = await fetch("/api/paystack/initialize", {
-                method: "POST",
-                credentials: "include",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  bookingId,
-                  amount: eventTypePrice * 100, // Convert to kobo
-                  // Email and name are retrieved from authenticated session on server
-                  metadata: {
-                    requestId: prefillRequestId || "",
-                    requestType: "CONSULTATION",
-                    description: `Consultation with ${dietitians.find(d => d.id === selectedDietician)?.name || "Dietitian"}`,
-                  },
-                }),
-              });
-
-              if (paymentResponse.ok) {
-                const paymentData = await paymentResponse.json();
-                if (paymentData.authorization_url) {
-                  // Redirect to Paystack payment page
-                  window.location.href = paymentData.authorization_url;
-                } else {
-                  throw new Error("No payment URL received");
-                }
-              } else {
-                const errorData = await paymentResponse.json().catch(() => ({}));
-                throw new Error(errorData.error || "Failed to initialize payment");
-              }
-            } catch (paymentErr) {
-              console.error("Payment initialization error:", paymentErr);
-              alert(paymentErr instanceof Error ? paymentErr.message : "Failed to initialize payment. Please try again.");
-            }
+            // Store booking info for PaymentModal
+            const serviceTitle = eventTypes.find(et => et.id === selectedEventTypeId)?.title || 
+                                 availableEventTypes.find(et => et.id === selectedEventTypeId)?.title || 
+                                 defaultEventTypes.find(et => et.id === selectedEventTypeId)?.title || 
+                                 "1-on-1 Consultation";
+            const dietitianDisplayName = dietitians.find(d => d.id === selectedDietician)?.name || "Dietitian";
+            
+            setBookingForPayment({
+              id: bookingId,
+              description: `${serviceTitle} with ${dietitianDisplayName}`,
+            });
+            
+            // Open PaymentModal instead of directly calling API
+            console.log('💳 [DEBUG] Opening PaymentModal for booking:', bookingId);
+            setIsPaymentModalOpen(true);
           } else {
             const errorData = await bookingResponse.json().catch(() => ({}));
-            console.error("Failed to create booking:", errorData);
-            alert("Failed to create booking. Please try again.");
-      }
-    } catch (err) {
-          console.error("Error creating booking:", err);
-          alert("Error creating booking. Please try again.");
+            console.error("❌ [DEBUG] Failed to create booking:", errorData);
+            
+            // Provide user-friendly error message
+            const errorMessage = errorData.error || errorData.message || 
+                               (errorData.details ? `${errorData.error || 'Failed to create booking'}: ${errorData.details}` : null) ||
+                               `Booking failed with status ${bookingResponse.status}. Please try again.`;
+            
+            alert(errorMessage);
+            return;
+          }
+        } catch (err: any) {
+          console.error("❌ [DEBUG] Error creating booking:", err);
+          
+          // Use the error message if it's already user-friendly (from timeout/network handling)
+          const errorMessage = err instanceof Error && err.message 
+            ? err.message 
+            : "Failed to create booking. Please check your connection and try again.";
+          
+          alert(errorMessage);
+          return;
         }
       } else {
         // Missing required fields
+        console.warn('⚠️ [DEBUG] Missing required fields:', {
+          selectedDate,
+          selectedTime,
+          selectedDietician,
+          selectedEventTypeId
+        });
         alert("Please select date, time, and dietitian before proceeding.");
       }
     }
+    } finally {
+      setIsProcessingPayment(false);
+    }
+    console.log('🏁 [DEBUG] handleCheckoutClick completed');
   };
 
   const handleRescheduleConfirmation = async () => {
@@ -1161,89 +1258,37 @@ function BookACallPageContent() {
   };
 
   const handlePaymentSuccess = async (paymentData: any) => {
+    // Note: With the redirect flow (PaymentModal redirects to Paystack), this callback
+    // is typically not called. Payment verification happens via the ?reference= URL param.
+    // This callback is here for non-redirect payment flows if needed in the future.
     setIsPaymentModalOpen(false);
+    setBookingForPayment(null);
     setPaymentData(paymentData);
-
-    if (selectedDate && selectedTime && selectedDietician) {
-      // Use fallback for email and name
-      // Priority: formData > userProfile > session data
-      const finalEmail = formData.email || userProfile?.email || sessionEmail;
-      const finalName = formData.name || userProfile?.name || sessionName;
-      
-      if (!finalEmail || !finalName) {
-        alert("Email and name are required. Please ensure your profile is complete.");
-        return;
+    
+    // Booking was already created in handleCheckoutClick before opening PaymentModal
+    // Just show success screen
+    setStep(7);
+    
+    // Save/update user profile data
+    try {
+      const profileResponse = await fetch("/api/user/profile", {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          age: formData.age ? parseInt(formData.age) : null,
+          occupation: formData.occupation || null,
+          medical_condition: formData.medicalCondition || null,
+          monthly_food_budget: formData.monthlyFoodBudget ? parseFloat(formData.monthlyFoodBudget) : null,
+        }),
+      });
+      if (!profileResponse.ok) {
+        console.error("Failed to save profile:", await profileResponse.text());
       }
-
-      try {
-        // Create booking
-        const response = await fetch("/api/bookings", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            dietitianId: selectedDietician,
-            eventTypeId: selectedEventTypeId || prefillEventTypeId,
-            startTime: new Date(`${dayjs(selectedDate).format("YYYY-MM-DD")}T${selectedTime}`).toISOString(),
-            name: finalName,
-            email: finalEmail,
-            notes: formData.complaint,
-            userAge: formData.age ? parseInt(formData.age) : null,
-            userOccupation: formData.occupation || null,
-            userMedicalCondition: formData.medicalCondition || null,
-            userMonthlyFoodBudget: formData.monthlyFoodBudget ? parseFloat(formData.monthlyFoodBudget) : null,
-            userComplaint: formData.complaint || null,
-            sessionRequestId: prefillRequestId,
-            paymentData,
-          }),
-        });
-
-        if (response.ok) {
-          const dietician = dietitians.find((d) => d.id === selectedDietician);
-          const selectedEventType = eventTypes.find(et => et.id === selectedEventTypeId);
-          const data = await response.json();
-          setBookingDetails({
-            id: data.booking?.id || `booking-${Date.now()}`,
-            date: selectedDate,
-            time: selectedTime,
-            dietician: dietician?.name || "",
-            duration: `${selectedEventType?.length || 45}m`,
-            meetingLink: data.booking?.meeting_link || "",
-          });
-          setStep(7);
-          
-          // Save/update user profile data
-          try {
-            const profileResponse = await fetch("/api/user/profile", {
-              method: "PUT",
-              credentials: "include",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                age: formData.age ? parseInt(formData.age) : null,
-                occupation: formData.occupation || null,
-                medical_condition: formData.medicalCondition || null,
-                monthly_food_budget: formData.monthlyFoodBudget ? parseFloat(formData.monthlyFoodBudget) : null,
-              }),
-            });
-            if (!profileResponse.ok) {
-              console.error("Failed to save profile:", await profileResponse.text());
-            }
-          } catch (profileErr) {
-            console.error("Error saving profile:", profileErr);
-          }
-          
-          // Update session request status
-          if (prefillRequestId) {
-            console.log(`Session request ${prefillRequestId} approved and booking created`);
-          }
-        }
-      } catch (err) {
-        console.error("Error creating booking:", err);
-      }
+    } catch (profileErr) {
+      console.error("Error saving profile:", profileErr);
     }
   };
 
@@ -1811,10 +1856,15 @@ function BookACallPageContent() {
                     ))}
                   </div>
                   {isLoadingDates ? (
-                    <div className="grid grid-cols-7 gap-1">
-                      {Array.from({ length: 35 }).map((_, idx) => (
-                        <div key={`skeleton-${idx}`} className="h-10 rounded bg-[#262626] animate-pulse" />
-                      ))}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-center text-sm text-[#9ca3af]">
+                        <span className="animate-pulse">Loading availability...</span>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1">
+                        {Array.from({ length: 35 }).map((_, idx) => (
+                          <div key={`skeleton-${idx}`} className="h-10 rounded bg-[#262626] animate-pulse" />
+                        ))}
+                      </div>
                     </div>
                   ) : (
                   <div className="grid grid-cols-7 gap-1">
@@ -1906,10 +1956,15 @@ function BookACallPageContent() {
                   {/* Time Slots List */}
                   <div className="space-y-2 max-h-[400px] overflow-y-auto mb-6">
                     {loadingTimeSlots ? (
-                      <div className="space-y-2">
-                        {Array.from({ length: 6 }).map((_, idx) => (
-                          <div key={`timeslot-skeleton-${idx}`} className="w-full h-12 rounded bg-[#262626] animate-pulse" />
-                        ))}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-center text-sm text-[#9ca3af]">
+                          <span className="animate-pulse">Loading time slots...</span>
+                        </div>
+                        <div className="space-y-2">
+                          {Array.from({ length: 6 }).map((_, idx) => (
+                            <div key={`timeslot-skeleton-${idx}`} className="w-full h-12 rounded bg-[#262626] animate-pulse" />
+                          ))}
+                        </div>
                       </div>
                     ) : timeSlots.length === 0 ? (
                       <div className="text-center py-8 text-sm text-[#9ca3af]">
@@ -1965,6 +2020,22 @@ function BookACallPageContent() {
                 <div className="p-4 md:p-8">
                   <h2 className="text-lg font-semibold text-[#f9fafb] mb-6">Order Summary</h2>
                   <div className="border border-[#262626] rounded-lg p-6 space-y-3 mb-6">
+                    {/* User Details */}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#9ca3af]">Name</span>
+                      <span className="text-[#f9fafb]">
+                        {sessionName || formData.name || "Loading..."}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#9ca3af]">Email</span>
+                      <span className="text-[#f9fafb] truncate max-w-[200px]">
+                        {sessionEmail || formData.email || "Loading..."}
+                      </span>
+                    </div>
+                    
+                    {/* Booking Details */}
+                    <div className="border-t border-[#262626] pt-3 mt-3" />
                     <div className="flex justify-between text-sm">
                       <span className="text-[#9ca3af]">Dietician</span>
                       <span className="text-[#f9fafb]">
@@ -1984,13 +2055,19 @@ function BookACallPageContent() {
                     <div className="flex justify-between text-sm gap-2">
                       <span className="text-[#9ca3af] flex-shrink-0">Service Type</span>
                       <span className="text-[#f9fafb] truncate text-right">
-                        {eventTypes.find(et => et.id === selectedEventTypeId)?.title || "Not selected"}
+                        {eventTypes.find(et => et.id === selectedEventTypeId)?.title || 
+                         availableEventTypes.find(et => et.id === selectedEventTypeId)?.title || 
+                         defaultEventTypes.find(et => et.id === selectedEventTypeId)?.title || 
+                         "1-on-1 Nutritional Counselling"}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-[#9ca3af]">Duration</span>
                       <span className="text-[#f9fafb]">
-                        {eventTypes.find(et => et.id === selectedEventTypeId)?.length || 45} minutes
+                        {eventTypes.find(et => et.id === selectedEventTypeId)?.length || 
+                         availableEventTypes.find(et => et.id === selectedEventTypeId)?.length || 
+                         defaultEventTypes.find(et => et.id === selectedEventTypeId)?.length || 
+                         45} minutes
                       </span>
                     </div>
                     {formData.age && (
@@ -2022,9 +2099,12 @@ function BookACallPageContent() {
                     </Button>
                     <Button
                       onClick={handleCheckoutClick}
-                      className="w-full sm:w-auto bg-white hover:bg-gray-100 text-black px-6 py-2"
+                      disabled={isProcessingPayment}
+                      className="w-full sm:w-auto bg-white hover:bg-gray-100 text-black px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isReschedule ? "Confirm Reschedule" : "Proceed to Payment"}
+                      {isProcessingPayment 
+                        ? (isReschedule ? "Processing..." : "Processing...") 
+                        : (isReschedule ? "Confirm Reschedule" : "Proceed to Payment")}
                     </Button>
                   </div>
                 </div>
@@ -2113,6 +2193,13 @@ function BookACallPageContent() {
                   </Button>
                 </div>
                 <Button
+                  onClick={() => router.push("/user-dashboard/upcoming-meetings")}
+                  variant="outline"
+                  className="w-full bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-6 py-2"
+                >
+                  View Upcoming Meetings
+                </Button>
+                <Button
                   onClick={() => {
                     setStep(1);
                     setSelectedDate(null);
@@ -2132,22 +2219,21 @@ function BookACallPageContent() {
       </main>
 
       {/* Payment Modal */}
-      {!isReschedule && (
+      {!isReschedule && bookingForPayment && (
         <PaymentModal
           isOpen={isPaymentModalOpen}
           onClose={() => {
             setIsPaymentModalOpen(false);
+            setBookingForPayment(null);
             setStep(5);
           }}
           onSuccess={handlePaymentSuccess}
           amount={eventTypePrice}
           currency="NGN"
-          description={selectedDietician && dietitians.find(d => d.id === selectedDietician) 
-            ? `Consultation with ${dietitians.find(d => d.id === selectedDietician)?.name}`
-            : "Consultation Booking"}
+          description={bookingForPayment.description}
           requestType="CONSULTATION"
           requestId={prefillRequestId || undefined}
-          bookingId={bookingDetails?.id || undefined}
+          bookingId={bookingForPayment.id}
           userEmail={formData.email || userProfile?.email || sessionEmail || ""}
           userName={formData.name || userProfile?.name || sessionName || ""}
         />

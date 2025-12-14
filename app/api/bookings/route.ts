@@ -4,8 +4,70 @@ import { getCurrentUserFromRequest } from "@/lib/auth-helpers";
 import { emailQueue } from "@/lib/email/queue";
 import dayjs from "dayjs";
 
+// Retry helper for transient network/DNS errors
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Retry on DNS/network errors
+      const isRetryable = 
+        error?.code === 'ENOTFOUND' ||
+        error?.code === 'ECONNRESET' ||
+        error?.code === 'ETIMEDOUT' ||
+        error?.message?.includes('fetch failed') ||
+        error?.message?.includes('network');
+      
+      if (isRetryable && attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+        console.warn(`⚠️ [Bookings API] Retryable error (attempt ${attempt + 1}/${maxRetries}):`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // Don't retry non-retryable errors or on last attempt
+      throw error;
+    }
+  }
+  
+  throw lastError;
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Validate environment variables
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ [Bookings API] Missing Supabase environment variables:', {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseKey,
+      });
+      return NextResponse.json(
+        { error: 'Service configuration error', details: 'Database connection not configured' },
+        { status: 500 }
+      );
+    }
+    
+    // Get authenticated user - this ensures booking user_id matches the auth user
+    const currentUser = await getCurrentUserFromRequest(request);
+    if (!currentUser) {
+      console.error('❌ [Bookings API] No authenticated user');
+      return NextResponse.json(
+        { error: 'Authentication required', details: 'Please log in to create a booking' },
+        { status: 401 }
+      );
+    }
+    
     const body = await request.json();
     const {
       eventTypeId,
@@ -35,65 +97,123 @@ export async function POST(request: NextRequest) {
     if (dietitianId) {
       // If dietitianId is provided (from pre-fill), use it
       dietitian_id = dietitianId;
-      const { data: eventTypeData, error: eventTypeError } = await supabaseAdmin
-        .from("event_types")
-        .select("*")
-        .eq("id", eventTypeId)
-        .single();
+      
+      // Try to find event type by ID first, then by slug (with retry for network errors)
+      let eventTypeData = null;
+      let eventTypeError = null;
+      
+      try {
+        // First try by UUID (if eventTypeId looks like a UUID)
+        if (eventTypeId && eventTypeId.length === 36 && eventTypeId.includes('-')) {
+          const result = await retryWithBackoff(() =>
+            supabaseAdmin
+              .from("event_types")
+              .select("*")
+              .eq("id", eventTypeId)
+              .single()
+          );
+          eventTypeData = result.data;
+          eventTypeError = result.error;
+        }
+        
+        // If not found by UUID, try by slug
+        if (!eventTypeData && eventTypeId) {
+          const result = await retryWithBackoff(() =>
+            supabaseAdmin
+              .from("event_types")
+              .select("*")
+              .eq("slug", eventTypeId)
+              .single()
+          );
+          eventTypeData = result.data;
+          eventTypeError = result.error;
+        }
+      } catch (networkError: any) {
+        console.error("[Bookings API] Network error fetching event type:", {
+          eventTypeId,
+          error: networkError.message,
+          code: networkError.code,
+        });
+        return NextResponse.json(
+          { 
+            error: "Database connection failed", 
+            details: networkError.message || "Unable to connect to database. Please try again.",
+            retryable: true
+          },
+          { status: 503 }
+        );
+      }
 
       if (eventTypeError || !eventTypeData) {
-        return NextResponse.json({ error: "Event type not found" }, { status: 404 });
+        console.error("[Bookings API] Event type not found:", { eventTypeId, error: eventTypeError?.message });
+        return NextResponse.json({ error: "Event type not found", details: `eventTypeId: ${eventTypeId}` }, { status: 404 });
       }
       eventType = eventTypeData;
     } else {
-      // Legacy flow - get from event type
-      const { data: eventTypeData, error: eventTypeError } = await supabaseAdmin
-        .from("event_types")
-        .select("*, users(*)")
-        .eq("id", eventTypeId)
-        .single();
+      // Legacy flow - get from event type (with retry for network errors)
+      let eventTypeData = null;
+      let eventTypeError = null;
+      
+      try {
+        // First try by UUID
+        if (eventTypeId && eventTypeId.length === 36 && eventTypeId.includes('-')) {
+          const result = await retryWithBackoff(() =>
+            supabaseAdmin
+              .from("event_types")
+              .select("*, users(*)")
+              .eq("id", eventTypeId)
+              .single()
+          );
+          eventTypeData = result.data;
+          eventTypeError = result.error;
+        }
+        
+        // If not found by UUID, try by slug
+        if (!eventTypeData && eventTypeId) {
+          const result = await retryWithBackoff(() =>
+            supabaseAdmin
+              .from("event_types")
+              .select("*, users(*)")
+              .eq("slug", eventTypeId)
+              .single()
+          );
+          eventTypeData = result.data;
+          eventTypeError = result.error;
+        }
+      } catch (networkError: any) {
+        console.error("[Bookings API] Network error fetching event type (legacy):", {
+          eventTypeId,
+          error: networkError.message,
+          code: networkError.code,
+        });
+        return NextResponse.json(
+          { 
+            error: "Database connection failed", 
+            details: networkError.message || "Unable to connect to database. Please try again.",
+            retryable: true
+          },
+          { status: 503 }
+        );
+      }
 
       if (eventTypeError || !eventTypeData) {
-        return NextResponse.json({ error: "Event type not found" }, { status: 404 });
+        console.error("[Bookings API] Event type not found:", { eventTypeId, error: eventTypeError?.message });
+        return NextResponse.json({ error: "Event type not found", details: `eventTypeId: ${eventTypeId}` }, { status: 404 });
       }
       eventType = eventTypeData;
       dietitian_id = eventType.user_id;
     }
 
-    // Create or get user by email
-    let { data: user } = await supabaseAdmin
-      .from("users")
-      .select("*")
-      .eq("email", email)
-      .single();
-
-    if (!user) {
-      const { data: newUser, error: userError } = await supabaseAdmin
-        .from("users")
-        .insert({
-          email,
-          name,
-          role: "USER",
-          account_status: "ACTIVE",
-        })
-        .select()
-        .single();
-
-      if (userError) {
-        return NextResponse.json(
-          { error: "Failed to create user", details: userError.message },
-          { status: 500 }
-        );
-      }
-      user = newUser;
-    }
+    // Use the authenticated user - this ensures consistency with auth system
+    // The user already exists since they're authenticated
+    const user = currentUser;
 
     // Calculate end time if not provided
     const startTimeDate = new Date(startTime);
     const durationMinutes = eventType.length || 30;
     const endTimeDate = endTime ? new Date(endTime) : new Date(startTimeDate.getTime() + durationMinutes * 60000);
 
-    // Create booking
+    // Create booking - use eventType.id (the actual UUID) not eventTypeId (which could be a slug)
     const { data: booking, error: bookingError } = await supabaseAdmin
       .from("bookings")
       .insert({
@@ -102,7 +222,7 @@ export async function POST(request: NextRequest) {
         start_time: startTimeDate.toISOString(),
         end_time: endTimeDate.toISOString(),
         status: "PENDING",
-        event_type_id: eventTypeId,
+        event_type_id: eventType.id,
         user_id: user.id,
         dietitian_id: dietitian_id || eventType.user_id,
         user_age: userAge,
