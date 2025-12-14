@@ -9,9 +9,35 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 export async function POST(request: NextRequest) {
   try {
+    // Parse body first
+    let body: any;
+    try {
+      body = await request.json();
+    } catch (parseErr: any) {
+      console.error("[Paystack Init] Body parse error:", parseErr.message);
+      return NextResponse.json(
+        { error: "Invalid request body", details: parseErr.message },
+        { status: 400 }
+      );
+    }
+
+    const { bookingId, amount, metadata } = body;
+
     if (!PAYSTACK_SECRET_KEY) {
+      console.error("[Paystack Init] PAYSTACK_SECRET_KEY not configured");
       return NextResponse.json(
         { error: "PAYSTACK_SECRET_KEY not configured" },
+        { status: 500 }
+      );
+    }
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("[Paystack Init] Supabase config missing", { 
+        hasUrl: !!supabaseUrl, 
+        hasKey: !!supabaseAnonKey 
+      });
+      return NextResponse.json(
+        { error: "Supabase configuration missing" },
         { status: 500 }
       );
     }
@@ -23,7 +49,7 @@ export async function POST(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll() {
+        setAll(cookiesToSet) {
           // Cookies are set via response headers
         },
       },
@@ -50,8 +76,6 @@ export async function POST(request: NextRequest) {
                  user.user_metadata?.full_name || 
                  user.email?.split("@")[0] || 
                  "User";
-
-    const { bookingId, amount, metadata } = await request.json();
 
     if (!amount) {
       return NextResponse.json(
