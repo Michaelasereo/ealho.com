@@ -23,8 +23,8 @@ interface EventType {
 
 // Default event type slugs that should have disabled Basics fields
 const DEFAULT_EVENT_TYPE_SLUGS = [
-  "free-trial-consultation",
-  "1-on-1-consultation-with-licensed-dietician",
+  "1-on-1-nutritional-counselling-and-assessment",
+  "1-on-1-nutritional-counselling-and-assessment-meal-plan",
   "monitoring",
 ];
 
@@ -118,6 +118,9 @@ export default function EventTypeDetailPage() {
 
     fetchEventType();
   }, [eventTypeId]);
+
+  // Note: We no longer auto-switch away from Basics tab for default event types
+  // The Basics content is visible but disabled with a "Coming Soon" message
 
   // Fetch availability schedules
   useEffect(() => {
@@ -423,7 +426,14 @@ export default function EventTypeDetailPage() {
             <div className="lg:col-span-3">
               {activeSection === "basics" && (
                 <div className="space-y-6">
-                  <h2 className="text-lg font-semibold text-[#f9fafb] mb-6">Basics</h2>
+                  <div className="mb-6">
+                    <h2 className="text-lg font-semibold text-[#f9fafb] mb-2">Basics</h2>
+                    <div className="bg-[#262626] border border-[#404040] rounded-lg px-4 py-3 mb-4">
+                      <p className="text-sm text-[#9ca3af]">
+                        <span className="font-medium text-[#f9fafb]">Coming Soon:</span> Editing basic fields (title, description, duration, price) will be available in a future update. For now, you can view these settings and adjust availability.
+                      </p>
+                    </div>
+                  </div>
 
                   {/* Title */}
                   <div>
@@ -433,7 +443,7 @@ export default function EventTypeDetailPage() {
                     <Input
                       type="text"
                       value={eventType.title}
-                      disabled={isDefaultEventType ?? false}
+                      disabled
                       className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
@@ -445,7 +455,7 @@ export default function EventTypeDetailPage() {
                     </label>
                     <Textarea
                       value={eventType.description || ""}
-                      disabled={isDefaultEventType ?? false}
+                      disabled
                       rows={4}
                       className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] disabled:opacity-50 disabled:cursor-not-allowed"
                     />
@@ -459,7 +469,7 @@ export default function EventTypeDetailPage() {
                     <Input
                       type="text"
                       value={`daiyet.co/dietitian/${eventType.slug}`}
-                      disabled={isDefaultEventType ?? false}
+                      disabled
                       className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
@@ -473,7 +483,7 @@ export default function EventTypeDetailPage() {
                       <Input
                         type="number"
                         value={eventType.length}
-                        disabled={isDefaultEventType ?? false}
+                        disabled
                         className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] disabled:opacity-50 disabled:cursor-not-allowed w-24"
                       />
                       <span className="text-sm text-[#9ca3af]">Minutes</span>
@@ -482,7 +492,7 @@ export default function EventTypeDetailPage() {
                       <input
                         type="checkbox"
                         id="multiple-durations"
-                        disabled={isDefaultEventType ?? false}
+                        disabled
                         className="w-4 h-4 rounded border-[#262626] bg-[#0a0a0a] text-white focus:ring-0 focus:ring-offset-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                       <label htmlFor="multiple-durations" className="text-sm text-[#D4D4D4]">
@@ -500,12 +510,12 @@ export default function EventTypeDetailPage() {
                       <Input
                         type="text"
                         value="Google Meet"
-                        disabled={isDefaultEventType ?? false}
+                        disabled
                         className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                       <Button
                         variant="outline"
-                        disabled={isDefaultEventType ?? false}
+                        disabled
                         className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#262626] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         + Add a location

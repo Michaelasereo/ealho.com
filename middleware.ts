@@ -33,13 +33,82 @@ const PUBLIC_ROUTES = [
 const ROLE_ROUTES = {
   DIETITIAN: ["/dashboard", "/dietitian", "/profile"],
   ADMIN: ["/admin", "/analytics", "/users"], // Admin should NOT access /dashboard - that's for dietitians only
-  USER: ["/user-dashboard", "/profile", "/settings", "/book"],
+  USER: ["/user-dashboard", "/profile", "/settings"],
 } as const;
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip for public routes
+  // DEVELOPMENT MODE: Bypass all auth checks in localhost
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[DEV MODE] Bypassing auth in middleware for:', pathname);
+    return NextResponse.next();
+  }
+
+  // CRITICAL: Allow RSC (React Server Component) requests to pass through
+  // RSC requests are made by Next.js during client-side navigation to fetch server component data
+  // They have special headers and should not be blocked by authentication middleware
+  const acceptHeader = request.headers.get("accept") || "";
+  const isRSCRequest = 
+    acceptHeader.includes("text/x-component") ||
+    acceptHeader.includes("application/vnd.nextjs.rsc") ||
+    request.headers.get("RSC") === "1" ||
+    request.headers.get("Next-Router-Prefetch") === "1";
+  
+  // Also check for Next.js internal RSC routes
+  const isNextInternal = 
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/_rsc") ||
+    pathname.includes("__rsc");
+
+  if (isRSCRequest || isNextInternal) {
+    // Allow RSC requests to pass through - they'll handle auth at the component level
+    // This prevents blocking Next.js's internal RSC payload fetches
+    return NextResponse.next();
+  }
+
+  // Check authentication first (before skipping public routes)
+  // This allows us to redirect authenticated users from home page to their dashboard
+  const { supabase, response } = createClient(request);
+  
+  let user = null;
+  try {
+    const { data: { user: authUser }, error } = await supabase.auth.getUser();
+    user = authUser;
+    
+    // If user is authenticated and visiting home page, redirect to their dashboard
+    if (!error && user && pathname === "/") {
+      // Get user role from database to determine redirect
+      try {
+        const supabaseAdmin = createAdminClient();
+        const { data: dbUser } = await supabaseAdmin
+          .from("users")
+          .select("role, account_status")
+          .eq("id", user.id)
+          .single();
+        
+        if (dbUser) {
+          const userRole = normalizeRole(dbUser.role);
+          const redirectPath = authConfig.redirects[userRole] || authConfig.redirects.default;
+          console.info("MiddlewareHomePageRedirect", {
+            userId: user.id,
+            userRole,
+            redirectTo: redirectPath,
+            timestamp: new Date().toISOString(),
+          });
+          return NextResponse.redirect(new URL(redirectPath, request.url));
+        }
+      } catch (adminError) {
+        // If we can't get user role, continue to normal flow
+        console.warn("MiddlewareHomePageRedirectError", adminError);
+      }
+    }
+  } catch (authCheckError) {
+    // If auth check fails, continue to normal flow
+    console.warn("MiddlewareAuthCheckError", authCheckError);
+  }
+  
+  // Skip for other public routes (only if not authenticated or not home page)
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();
   }
@@ -59,25 +128,51 @@ export async function middleware(request: NextRequest) {
     if (isPublicApiRoute) {
       return NextResponse.next();
     }
+    
+    // Allow public access to event-types and availability/timeslots when dietitianId is provided
+    // These routes handle their own authentication logic
+    if (pathname === "/api/event-types" || pathname === "/api/availability/timeslots") {
+      const { searchParams } = new URL(request.url);
+      const dietitianId = searchParams.get("dietitianId");
+      // If dietitianId is provided, allow public access (for booking flow)
+      if (dietitianId) {
+        return NextResponse.next();
+      }
+      // Otherwise, continue to auth check below (for private access)
+    }
+    
     // Otherwise, API routes require authentication - continue to auth check below
   }
 
-  // Create Supabase client using @supabase/ssr
-  const { supabase, response } = createClient(request);
+  // If we already created supabase client above for home page check, reuse it
+  // Otherwise create a new one
+  let supabaseForAuth = supabase;
+  let responseForAuth = response;
+  
+  if (!supabaseForAuth) {
+    const client = createClient(request);
+    supabaseForAuth = client.supabase;
+    responseForAuth = client.response;
+  }
 
   try {
     // Get user (more reliable than getSession in middleware)
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+    // Use the user we already fetched if available, otherwise fetch again
+    let authUser = user;
+    let authError = null;
+    
+    if (!authUser) {
+      const result = await supabaseForAuth.auth.getUser();
+      authUser = result.data.user;
+      authError = result.error;
+    }
     
     // If no user, redirect to signin
-    if (error || !user) {
+    if (authError || !authUser) {
       console.warn("MiddlewareAuthError", {
         path: pathname,
-        error: error?.message,
-        hasUser: !!user,
+        error: authError?.message,
+        hasUser: !!authUser,
         timestamp: new Date().toISOString(),
       });
 
@@ -96,7 +191,7 @@ export async function middleware(request: NextRequest) {
     }
     
     // Create session object from user for compatibility
-    const session = { user };
+    const session = { user: authUser };
 
     // Get user from database (using admin client for reliability)
     let supabaseAdmin;
@@ -202,12 +297,12 @@ export async function middleware(request: NextRequest) {
     }
 
     // Add security headers (response already created by createClient)
-    response.headers.set("X-User-ID", session.user.id);
-    response.headers.set("X-User-Role", userRole);
+    responseForAuth.headers.set("X-User-ID", session.user.id);
+    responseForAuth.headers.set("X-User-Role", userRole);
 
     // Add cache control for authenticated pages
     if (!pathname.startsWith("/api/")) {
-      response.headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate");
+      responseForAuth.headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate");
     }
 
     // Audit log for sensitive actions
@@ -229,7 +324,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    return response;
+    return responseForAuth;
   } catch (error) {
     console.error("MiddlewareError", {
       error: error instanceof Error ? error.message : "Unknown error",

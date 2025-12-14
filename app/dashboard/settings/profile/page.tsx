@@ -11,24 +11,62 @@ import { dietitianService } from "@/lib/dietitian-service";
 import { DietitianProfile } from "@/types";
 import { setupRealtimeUpdates } from "@/lib/realtime-updates";
 
+// DEV MODE: Hardcoded dietitian user ID for localhost testing
+const DEV_DIETITIAN_ID = 'b900e502-71a6-45da-bde6-7b596cc14d88';
+const isDev = process.env.NODE_ENV === 'development';
+
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, setProfileDirect } = useAuth();
   const [profile, setProfile] = useState<DietitianProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Get effective user ID (real user or dev mode fallback)
+  const effectiveUserId = user?.id || (isDev ? DEV_DIETITIAN_ID : null);
+
   // Fetch profile on mount
   useEffect(() => {
     const loadProfile = async () => {
-      if (!user) return;
+      if (!effectiveUserId) return;
       
       setLoading(true);
       try {
-        // SINGLE SERVICE CALL - gets everything
-        const data = await dietitianService.getDietitianProfile(user.id);
-        setProfile(data);
+        // SINGLE SERVICE CALL - gets everything from database
+        const data = await dietitianService.getDietitianProfile(effectiveUserId);
+        
+        // If name or email is missing from database, fallback to Google auth metadata
+        if ((!data.name || data.name.trim() === '') || (!data.email || data.email.trim() === '')) {
+          try {
+            const { createBrowserClient } = await import("@/lib/supabase/client");
+            const supabase = createBrowserClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session?.user) {
+              const googleName = 
+                session.user.user_metadata?.name ||
+                session.user.user_metadata?.full_name ||
+                null;
+              
+              const googleEmail = session.user.email || null;
+              
+              // Use database data with Google auth fallback
+              setProfile({
+                ...data,
+                name: data.name || googleName || '',
+                email: data.email || googleEmail || '',
+              });
+            } else {
+              setProfile(data);
+            }
+          } catch (authError) {
+            console.warn('Failed to fetch auth metadata, using database data:', authError);
+            setProfile(data);
+          }
+        } else {
+          setProfile(data);
+        }
       } catch (error) {
         console.error('Failed to load profile:', error);
         setSaveError('Failed to load profile. Please refresh the page.');
@@ -38,19 +76,19 @@ export default function ProfilePage() {
     };
     
     loadProfile();
-  }, [user]);
+  }, [effectiveUserId]);
 
   // Setup real-time updates
   useEffect(() => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     
-    const unsubscribe = setupRealtimeUpdates(user.id, () => {
+    const unsubscribe = setupRealtimeUpdates(effectiveUserId, () => {
       // Refresh profile when real-time update is received
-      dietitianService.getDietitianProfile(user.id, true).then(setProfile).catch(console.error);
+      dietitianService.getDietitianProfile(effectiveUserId, true).then(setProfile).catch(console.error);
     });
     
     return unsubscribe;
-  }, [user]);
+  }, [effectiveUserId]);
 
   // Convert name to URL-friendly slug
   const nameToSlug = (name: string): string => {
@@ -73,21 +111,71 @@ export default function ProfilePage() {
       .slice(0, 2);
   };
 
-  // Handle bio update
-  const handleSaveBio = async () => {
-    if (!user || !profile) {
-      console.error('Cannot save: missing user or profile', { hasUser: !!user, hasProfile: !!profile });
+  // Handle name update
+  const handleSaveName = async () => {
+    if (!effectiveUserId || !profile) {
+      console.error('Cannot save: missing user or profile', { hasUserId: !!effectiveUserId, hasProfile: !!profile });
       return;
     }
-    
+
+    if (!profile.name || profile.name.trim().length === 0) {
+      setSaveError('Name cannot be empty');
+      return;
+    }
+
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
-    
+
     try {
-      console.log('Saving bio:', { userId: user.id, bioLength: profile.bio?.length || 0 });
+      const newName = profile.name.trim();
+      console.log('Saving name:', { userId: effectiveUserId, name: newName });
+
+      const result = await dietitianService.updateProfile(effectiveUserId, { name: newName });
       
-      const result = await dietitianService.updateProfile(user.id, { bio: profile.bio ?? undefined });
+      // Update local state
+      if (result.data) {
+        const updatedProfile = { 
+          ...profile, 
+          name: result.data.name,
+          updatedAt: result.data.updated_at 
+        };
+        setProfile(updatedProfile);
+        
+        // Update AuthProvider context so name reflects throughout the app (sidebar, etc.)
+        setProfileDirect({ name: result.data.name, image: profile.image || null });
+      }
+      
+      setSaveSuccess(true);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Failed to save name:', error);
+      const errorMessage = error?.message || error?.details || 'Unknown error';
+      setSaveError(`Failed to save name: ${errorMessage}. Please try again.`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle bio update
+  const handleSaveBio = async () => {
+    if (!effectiveUserId || !profile) {
+      console.error('Cannot save: missing user or profile', { hasUserId: !!effectiveUserId, hasProfile: !!profile });
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      console.log('Saving bio:', { userId: effectiveUserId, bioLength: profile.bio?.length || 0 });
+
+      const result = await dietitianService.updateProfile(effectiveUserId, { bio: profile.bio ?? undefined });
       
       // Update local state with the saved bio (optimistic update)
       if (result.data) {
@@ -219,15 +307,24 @@ export default function ProfilePage() {
           <label className="block text-sm font-medium text-[#D4D4D4]">
             Full name
           </label>
+          <div className="flex items-center gap-2">
             <Input
               type="text"
               value={profile?.name || ''}
-              onChange={() => {}}
-              disabled
-              className="bg-[#0a0a0a] border-[#262626] text-[#f9fafb] focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-[#404040] opacity-50 cursor-not-allowed"
+              onChange={(e) => setProfile(prev => prev ? { ...prev, name: e.target.value } : null)}
+              className="flex-1 bg-[#0a0a0a] border-[#262626] text-[#f9fafb] focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-[#404040]"
+              placeholder="Enter your full name"
             />
+            <Button
+              onClick={handleSaveName}
+              disabled={saving || !profile?.name?.trim()}
+              className="bg-white hover:bg-gray-100 text-black px-4 py-2 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </div>
           <p className="text-xs text-[#9ca3af]">
-            Name is fixed and cannot be edited
+            Your name will be displayed throughout the app and to users booking with you
           </p>
         </div>
 
