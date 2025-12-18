@@ -185,7 +185,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({
       success: true,
       deleted: deletedUsers.length,
-      errors: errors.length,
+      errorCount: errors.length,
       deletedUsers,
       errors: errors.length > 0 ? errors : undefined,
       message: `Successfully deleted ${deletedUsers.length} user(s). ${errors.length > 0 ? `${errors.length} error(s) occurred.` : ""}`,
