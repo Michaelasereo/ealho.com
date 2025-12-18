@@ -45,6 +45,7 @@ export default function TherapistEnrollmentPage() {
   const [checkingEnrollment, setCheckingEnrollment] = useState(true);
   const [emailExistsModalOpen, setEmailExistsModalOpen] = useState(false);
   const [checkingEmail, setCheckingEmail] = useState(false);
+  const [existingUserRole, setExistingUserRole] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -217,14 +218,22 @@ export default function TherapistEnrollmentPage() {
 
       const data = await response.json();
       
-      if (data.exists) {
+      // If user can enroll (doesn't exist or has role="USER"), allow OAuth to proceed
+      if (data.canEnroll) {
+        setCheckingEmail(false);
+        return false; // Don't block OAuth
+      }
+      
+      // Only block if user is already THERAPIST or DIETITIAN
+      if (data.exists && (data.isAlreadyTherapist || data.isAlreadyDietitian)) {
+        setExistingUserRole(data.role);
         setEmailExistsModalOpen(true);
         setCheckingEmail(false);
-        return true;
+        return true; // Block OAuth
       }
       
       setCheckingEmail(false);
-      return false;
+      return false; // Allow OAuth to proceed
     } catch (err) {
       console.error("Error checking email:", err);
       setCheckingEmail(false);
@@ -384,11 +393,7 @@ export default function TherapistEnrollmentPage() {
     setSubmitted(false);
     setSubmitting(true);
 
-    if (!supabase) {
-      setError("Authentication client not available. Please refresh the page.");
-      setSubmitting(false);
-      return;
-    }
+    if (!supabase) return;
     
     try {
       // Verify session before proceeding
@@ -415,11 +420,7 @@ export default function TherapistEnrollmentPage() {
         });
       }
 
-      // Submit enrollment data with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-      try {
+      // Submit enrollment data
       const response = await fetch("/api/therapists/enroll", {
         method: "POST",
         headers: {
@@ -438,10 +439,7 @@ export default function TherapistEnrollmentPage() {
           specialization,
           bio,
         }),
-          signal: controller.signal,
       });
-
-        clearTimeout(timeoutId);
 
       let data;
       try {
@@ -477,17 +475,7 @@ export default function TherapistEnrollmentPage() {
     setTimeout(() => {
       window.location.href = "/therapist-dashboard";
     }, 2000);
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          setError("Request timed out. Please check your connection and try again.");
-        } else {
-          throw fetchError; // Re-throw to be caught by outer catch
-        }
-        setSubmitting(false);
-      }
     } catch (err) {
-      console.error("Enrollment submission error:", err);
       setError(err instanceof Error ? err.message : "Failed to submit enrollment");
       setSubmitted(false);
       setSubmitting(false);
@@ -965,7 +953,11 @@ export default function TherapistEnrollmentPage() {
               </button>
             </div>
             <p className="text-[#D4D4D4] mb-6">
-              This email is already registered. Please go to login to access your account.
+              {existingUserRole === "THERAPIST" 
+                ? "This email is already registered as a therapist. Please go to login to access your therapist dashboard."
+                : existingUserRole === "DIETITIAN"
+                ? "This email is already registered as a dietitian. Please use the dietitian login instead."
+                : "This email is already registered. Please go to login to access your account."}
             </p>
             <div className="flex gap-3">
               <Button

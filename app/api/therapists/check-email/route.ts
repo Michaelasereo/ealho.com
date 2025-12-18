@@ -34,10 +34,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // If user exists with role="USER", they can still enroll as therapist
+    // Only block if they're already THERAPIST or DIETITIAN
+    const canEnroll = !existingUser || existingUser.role === "USER";
+    const isAlreadyTherapist = existingUser?.role === "THERAPIST";
+    const isAlreadyDietitian = existingUser?.role === "DIETITIAN";
+
     return NextResponse.json(
       {
         exists: !!existingUser,
         role: existingUser?.role || null,
+        canEnroll, // true if user doesn't exist or has role="USER"
+        isAlreadyTherapist,
+        isAlreadyDietitian,
+        message: isAlreadyTherapist 
+          ? "This email is already registered as a therapist. Please login instead."
+          : isAlreadyDietitian
+          ? "This email is already registered as a dietitian."
+          : existingUser && existingUser.role === "USER"
+          ? "This email exists but can be upgraded to therapist."
+          : null,
       },
       { status: 200 }
     );

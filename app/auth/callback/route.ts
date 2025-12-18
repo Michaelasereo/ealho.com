@@ -412,39 +412,34 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    // Handle therapist enrollment flow: if user is already THERAPIST, redirect to dashboard
-    if (cameFromTherapistEnrollment && finalRole === "THERAPIST") {
-      console.info("AuthCallbackTherapistEnrollmentAlreadyEnrolled", {
-        userId: user.id,
-        role: finalRole,
-        source,
-        timestamp: new Date().toISOString(),
-      });
-      const redirectTo = "/therapist-dashboard";
-      const response = NextResponse.redirect(new URL(redirectTo, siteOrigin));
-      response.headers.set("X-Auth-Status", "success");
-      return response;
-    }
-
-    // If came from therapist-enrollment and user is not enrolled (not THERAPIST), redirect back to enrollment with connected=true
-    if (cameFromTherapistEnrollment && finalRole !== "THERAPIST") {
-      console.info("AuthCallbackTherapistEnrollmentNotEnrolled", {
-        userId: user.id,
-        role: finalRole,
-        source,
-        timestamp: new Date().toISOString(),
-      });
-      const redirectTo = "/therapist-enrollment?connected=true";
-      const response = NextResponse.redirect(new URL(redirectTo, siteOrigin));
-      response.headers.set("X-Auth-Status", "success");
-      response.headers.set("X-Robots-Tag", "noindex, nofollow");
-      response.headers.set(
-        "Cache-Control",
-        "no-store, no-cache, must-revalidate, proxy-revalidate"
-      );
-      response.headers.set("Pragma", "no-cache");
-      response.headers.set("Expires", "0");
-      return response;
+    // Handle therapist enrollment flow
+    if (cameFromTherapistEnrollment) {
+      if (finalRole === "THERAPIST") {
+        // User is already enrolled as THERAPIST, redirect to dashboard
+        console.info("AuthCallbackTherapistEnrollmentAlreadyEnrolled", {
+          userId: user.id,
+          role: finalRole,
+          source,
+          timestamp: new Date().toISOString(),
+        });
+        const redirectTo = "/therapist-dashboard";
+        const response = NextResponse.redirect(new URL(redirectTo, siteOrigin));
+        response.headers.set("X-Auth-Status", "success");
+        return response;
+      } else {
+        // User came from therapist enrollment but doesn't have THERAPIST role yet
+        // Redirect back to enrollment page so they can complete the form
+        console.info("AuthCallbackTherapistEnrollmentIncomplete", {
+          userId: user.id,
+          role: finalRole,
+          source,
+          timestamp: new Date().toISOString(),
+        });
+        const redirectTo = "/therapist-enrollment";
+        const response = NextResponse.redirect(new URL(redirectTo, siteOrigin));
+        response.headers.set("X-Auth-Status", "success");
+        return response;
+      }
     }
 
     // If came from dietitian-login and user is not enrolled (not DIETITIAN), redirect to enrollment
