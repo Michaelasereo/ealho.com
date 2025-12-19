@@ -58,8 +58,8 @@ function TherapyBookingContent() {
   const router = useRouter();
   const prefillTherapistId = searchParams.get("therapistId");
   
-  // Always start at step 1, even when therapist is pre-selected
-  const initialStep = 1;
+  // Skip to step 4 (date/time) if therapist is pre-selected from public link
+  const initialStep = prefillTherapistId ? 4 : 1;
   
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7>(initialStep);
   
@@ -186,12 +186,11 @@ function TherapyBookingContent() {
           }));
           setTherapists(formattedTherapists);
           
-          // If therapist is pre-selected, set the name and ensure selectedTherapist is set
+          // If therapist is pre-selected, set the name
           if (prefillTherapistId) {
             const therapist = formattedTherapists.find(t => t.id === prefillTherapistId);
             if (therapist) {
               setTherapistName(therapist.name);
-              setSelectedTherapist(prefillTherapistId);
             }
           }
         }
@@ -391,7 +390,9 @@ function TherapyBookingContent() {
       errors.whatBringsYou = "Please describe what brings you into therapy";
     }
     
-    // Note: therapyType is not required in Step 2 as event type is selected separately
+    if (!therapyData.therapyType) {
+      errors.therapyType = "Please select a therapy type";
+    }
     
     return errors;
   };
@@ -569,7 +570,6 @@ function TherapyBookingContent() {
           <Step1WelcomeForm
             formData={formData}
             validationErrors={validationErrors}
-            therapistName={prefillTherapistId ? therapistName : undefined}
             onFormDataChange={(data) => {
               setFormData(prev => ({ ...prev, ...data }));
               // Clear validation errors when user types
@@ -589,7 +589,6 @@ function TherapyBookingContent() {
             therapyData={therapyData}
             availableEventTypes={availableEventTypes}
             validationErrors={validationErrors}
-            prefillTherapistId={prefillTherapistId || undefined}
             onTherapyDataChange={(data) => {
               setTherapyData(prev => ({ ...prev, ...data }));
               // Clear validation errors when user types

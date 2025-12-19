@@ -139,8 +139,15 @@ function PublicTherapistProfileContent() {
               className="h-7 sm:h-8 w-auto"
               priority
             />
-            <span className="hidden sm:inline text-xs sm:text-sm text-white/60">Therapy</span>
           </Link>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Link
+              href="/therapy"
+              className="text-sm sm:text-base text-white/80 hover:text-white transition-colors"
+            >
+              Back to Therapy
+            </Link>
+          </div>
         </div>
       </header>
       
@@ -172,7 +179,9 @@ function PublicTherapistProfileContent() {
               <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-2">
                 {formatTherapistName(therapist.name)}
               </h1>
-              <p className="text-[#9ca3af] mb-2">Licensed Therapist</p>
+              {therapist.specialization && (
+                <p className="text-[#9ca3af] mb-2">{therapist.specialization}</p>
+              )}
               {therapist.location && (
                 <p className="text-sm text-[#9ca3af]">{therapist.location}</p>
               )}

@@ -26,12 +26,43 @@ export default async function DashboardPage() {
       redirect("/therapist-login?redirect=/therapist-dashboard");
     }
 
-    // 2. Check user role and account status
-    const { data: dbUser, error: userError } = await supabaseAdmin
+    // 2. Check user role and account status - look up by (auth_user_id, role)
+    let { data: dbUser, error: userError } = await supabaseAdmin
       .from("users")
       .select("role, account_status, name, email, id")
-      .eq("id", user.id)
-      .single();
+      .eq("auth_user_id", user.id)
+      .eq("role", "THERAPIST")
+      .maybeSingle();
+
+    // Fallback: try by id (for backward compatibility)
+    if (userError || !dbUser) {
+      const { data: userById, error: errorById } = await supabaseAdmin
+        .from("users")
+        .select("role, account_status, name, email, id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!errorById && userById) {
+        if (userById.role !== "THERAPIST") {
+          // User exists but with different role - redirect appropriately
+          if (userById.role === "DIETITIAN") redirect("/dashboard");
+          else if (userById.role === "USER") redirect("/user-dashboard");
+          else if (userById.role === "ADMIN") redirect("/admin");
+          else redirect("/");
+        }
+        dbUser = userById;
+        
+        // Update auth_user_id if not set
+        if (!dbUser.auth_user_id) {
+          await supabaseAdmin
+            .from("users")
+            .update({ auth_user_id: user.id })
+            .eq("id", dbUser.id);
+        }
+      } else {
+        userError = errorById;
+      }
+    }
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/47c98e00-030f-46e7-b782-5ff73cdaf6f4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/therapist-dashboard/page.tsx:29',message:'Database user fetch result',data:{hasError:!!userError,hasUser:!!dbUser,userId:user?.id,userEmail:user?.email,userRole:dbUser?.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
     // #endregion
@@ -102,7 +133,7 @@ export default async function DashboardPage() {
         totalSessionsQuery.eq("dietitian_id", dietitianId);
       }
       
-      const totalSessionsResult = await withTimeout(totalSessionsQuery, 10000);
+      const totalSessionsResult = await withTimeout(totalSessionsQuery as unknown as Promise<any>, 10000);
       totalSessions = totalSessionsResult.count || 0;
     } catch (error) {
       console.error("Error fetching total sessions:", error);
@@ -121,7 +152,7 @@ export default async function DashboardPage() {
         upcomingSessionsQuery.eq("dietitian_id", dietitianId);
       }
       
-      const upcomingSessionsResult = await withTimeout(upcomingSessionsQuery, 10000);
+      const upcomingSessionsResult = await withTimeout(upcomingSessionsQuery as unknown as Promise<any>, 10000);
       upcomingSessions = upcomingSessionsResult.count || 0;
     } catch (error) {
       console.error("Error fetching upcoming sessions:", error);
@@ -151,10 +182,10 @@ export default async function DashboardPage() {
           .eq("status", "SUCCESS");
       }
       
-      const { data: payments, error: paymentsError } = await withTimeout(paymentsQuery, 10000);
+      const { data: payments, error: paymentsError } = await withTimeout(paymentsQuery as unknown as Promise<any>, 10000);
 
       if (!paymentsError && payments) {
-        totalRevenue = payments.reduce((sum, payment) => {
+        totalRevenue = payments.reduce((sum: number, payment: any) => {
           return sum + Number(payment.amount || 0);
         }, 0);
       }
@@ -200,7 +231,7 @@ export default async function DashboardPage() {
         bookingsQuery.eq("dietitian_id", dietitianId);
       }
       
-        const { data: bookingsData, error: bookingsError } = await withTimeout(bookingsQuery, 10000);
+        const { data: bookingsData, error: bookingsError } = await withTimeout(bookingsQuery as unknown as Promise<any>, 10000);
 
       // Transform bookings to match the expected format
       upcomingBookings =

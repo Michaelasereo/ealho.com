@@ -26,12 +26,43 @@ export default async function DashboardPage() {
       redirect("/dietitian-login?redirect=/dashboard");
     }
 
-    // 2. Check user role and account status
-    const { data: dbUser, error: userError } = await supabaseAdmin
+    // 2. Check user role and account status - look up by (auth_user_id, role)
+    let { data: dbUser, error: userError } = await supabaseAdmin
       .from("users")
       .select("role, account_status, name, email, id")
-      .eq("id", user.id)
-      .single();
+      .eq("auth_user_id", user.id)
+      .eq("role", "DIETITIAN")
+      .maybeSingle();
+
+    // Fallback: try by id (for backward compatibility)
+    if (userError || !dbUser) {
+      const { data: userById, error: errorById } = await supabaseAdmin
+        .from("users")
+        .select("role, account_status, name, email, id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!errorById && userById) {
+        if (userById.role !== "DIETITIAN") {
+          // User exists but with different role - redirect appropriately
+          if (userById.role === "THERAPIST") redirect("/therapist-dashboard");
+          else if (userById.role === "USER") redirect("/user-dashboard");
+          else if (userById.role === "ADMIN") redirect("/admin");
+          else redirect("/");
+        }
+        dbUser = userById;
+        
+        // Update auth_user_id if not set
+        if (!dbUser.auth_user_id) {
+          await supabaseAdmin
+            .from("users")
+            .update({ auth_user_id: user.id })
+            .eq("id", dbUser.id);
+        }
+      } else {
+        userError = errorById;
+      }
+    }
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/47c98e00-030f-46e7-b782-5ff73cdaf6f4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/dashboard/page.tsx:29',message:'Database user fetch result',data:{hasError:!!userError,hasUser:!!dbUser,userId:user?.id,userEmail:user?.email,userRole:dbUser?.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
     // #endregion

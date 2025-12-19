@@ -15,11 +15,12 @@ export async function POST(request: NextRequest) {
 
     const supabaseAdmin = createAdminClientServer();
 
-    // Check if email exists in users table
+    // Check if email exists with DIETITIAN role
     const { data: existingUser, error: checkError } = await supabaseAdmin
       .from("users")
       .select("id, email, role")
       .eq("email", email.toLowerCase().trim())
+      .eq("role", "DIETITIAN")
       .single();
 
     if (checkError && checkError.code !== "PGRST116") {

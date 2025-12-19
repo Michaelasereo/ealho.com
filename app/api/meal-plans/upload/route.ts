@@ -119,15 +119,11 @@ export async function POST(request: NextRequest) {
       console.error("[UPLOAD] Upload error:", {
         error: uploadError,
         message: uploadError.message,
-        statusCode: uploadError.statusCode,
-        errorCode: uploadError.error,
       });
       return NextResponse.json(
         { 
           error: "Failed to upload file", 
           details: uploadError.message,
-          errorCode: uploadError.error,
-          statusCode: uploadError.statusCode,
         },
         { status: 500 }
       );

@@ -2,9 +2,8 @@
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ArrowLeft } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { NIGERIA_STATES } from "@/constants/nigeriaStates";
-import Link from "next/link";
 
 interface Step1WelcomeFormProps {
   formData: {
@@ -16,48 +15,19 @@ interface Step1WelcomeFormProps {
     state: string;
   };
   validationErrors: Record<string, string>;
-  therapistName?: string;
   onFormDataChange: (data: Partial<Step1WelcomeFormProps["formData"]>) => void;
   onContinue: () => void;
-}
-
-// Convert name to slug for URL
-function nameToSlug(name: string): string {
-  if (!name) return "";
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
 }
 
 export function Step1WelcomeForm({
   formData,
   validationErrors,
-  therapistName,
   onFormDataChange,
   onContinue,
 }: Step1WelcomeFormProps) {
-  const therapistSlug = therapistName ? nameToSlug(therapistName) : null;
-  const backUrl = therapistSlug ? `/Therapist/${therapistSlug}` : "/therapy";
-
   return (
     <div className="p-6 md:p-8">
       <div className="max-w-2xl mx-auto">
-        {/* Back Button - Only show if therapist is pre-selected */}
-        {therapistName && (
-          <div className="mb-6">
-            <Link
-              href={backUrl}
-              className="inline-flex items-center gap-2 text-[#9ca3af] hover:text-white transition-colors text-sm"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to {therapistName}'s profile
-            </Link>
-          </div>
-        )}
-        
         {/* Welcome Message */}
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-white mb-4">Welcome to Therapy by Daiyet!</h1>
@@ -184,16 +154,6 @@ export function Step1WelcomeForm({
         </div>
         
         <div className="flex gap-3 mt-6">
-          {therapistName && (
-            <Link href={backUrl}>
-              <Button
-                variant="outline"
-                className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-6 py-2"
-              >
-                Back
-              </Button>
-            </Link>
-          )}
           <Button
             onClick={onContinue}
             className="bg-[#FFF4E0] hover:bg-[#ffe9c2] text-black px-6 py-2"

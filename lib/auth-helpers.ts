@@ -278,12 +278,71 @@ export async function getCurrentUserFromRequest(request: Request | NextRequest):
     const finalAuthUser = authUser;
 
     // Get user record from database
+    // Determine target role based on route context
+    const pathname = url.pathname;
+    let targetRole: string | null = null;
+    if (pathname.startsWith("/dashboard") && !pathname.startsWith("/therapist-dashboard")) {
+      targetRole = "DIETITIAN";
+    } else if (pathname.startsWith("/therapist-dashboard")) {
+      targetRole = "THERAPIST";
+    } else if (pathname.startsWith("/user-dashboard")) {
+      targetRole = "USER";
+    }
+
     const supabaseAdmin = createAdminClientServer();
-    let { data: user, error } = await supabaseAdmin
-      .from("users")
-      .select("*")
-      .eq("id", finalAuthUser.id)
-      .single();
+    let user = null;
+    let error = null;
+
+    // If we have a target role, look up by (auth_user_id, role)
+    if (targetRole) {
+      const { data: userByAuthIdRole, error: errorByAuthIdRole } = await supabaseAdmin
+        .from("users")
+        .select("*")
+        .eq("auth_user_id", finalAuthUser.id)
+        .eq("role", targetRole)
+        .maybeSingle();
+
+      if (!errorByAuthIdRole && userByAuthIdRole) {
+        user = userByAuthIdRole;
+      } else {
+        error = errorByAuthIdRole;
+      }
+    }
+
+    // Fallback: try by id (for backward compatibility with old accounts)
+    if (!user) {
+      const { data: userById, error: errorById } = await supabaseAdmin
+        .from("users")
+        .select("*")
+        .eq("id", finalAuthUser.id)
+        .maybeSingle();
+
+      if (!errorById && userById) {
+        // If we have a target role and the found user doesn't match, that's an error
+        if (targetRole && userById.role !== targetRole) {
+          // User exists but with different role - this is expected for separate accounts
+          // Return null so the caller can handle the redirect
+          console.info("getCurrentUserFromRequest: User exists with different role", {
+            authUserId: finalAuthUser.id,
+            foundRole: userById.role,
+            targetRole,
+            pathname,
+          });
+          return null;
+        }
+        user = userById;
+        
+        // Update auth_user_id if not set (backward compatibility)
+        if (!user.auth_user_id) {
+          await supabaseAdmin
+            .from("users")
+            .update({ auth_user_id: finalAuthUser.id })
+            .eq("id", user.id);
+        }
+      } else {
+        error = errorById;
+      }
+    }
 
     // If user doesn't exist in database but exists in auth, create the user record
     // This handles cases where OAuth succeeded but database record creation failed or was delayed
@@ -297,12 +356,21 @@ export async function getCurrentUserFromRequest(request: Request | NextRequest):
       const userMetadata = finalAuthUser.user_metadata || {};
       const googleImage = userMetadata.avatar_url || userMetadata.picture || userMetadata.image || null;
       
+      // Determine role for new user creation
+      const defaultRole = targetRole || "USER";
+      
+      // Generate new UUID for user record (not using auth user ID directly)
+      // Import crypto dynamically for UUID generation
+      const crypto = await import("crypto");
+      const newUserId = crypto.randomUUID();
+      
       const insertData = {
-        id: finalAuthUser.id,
+        id: newUserId, // Use generated UUID
+        auth_user_id: finalAuthUser.id, // Link to Supabase Auth account
         email: finalAuthUser.email!,
         name: userMetadata.name || userMetadata.full_name || finalAuthUser.email!.split("@")[0],
         image: googleImage,
-        role: "USER", // Default role, can be upgraded later
+        role: defaultRole,
         account_status: "ACTIVE",
         email_verified: finalAuthUser.email_confirmed_at || null,
         last_sign_in_at: new Date().toISOString(),

@@ -5,6 +5,7 @@ import { authRateLimit } from "@/lib/rate-limit";
 import { determineUserRedirect } from "@/lib/utils/determine-user-redirect";
 import { getUserRoleWithRetry, normalizeRole } from "@/lib/utils/auth-utils";
 import { ADMIN_EMAIL } from "@/lib/auth/config";
+import { randomUUID } from "crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -160,24 +161,105 @@ export async function GET(request: NextRequest) {
     let dbUser = null;
     let createdUser = null;
 
-    // First, try to get existing user with retry logic (handles race conditions)
-    const { role: existingRole, error: roleError } = await getUserRoleWithRetry(
-      supabaseAdmin,
-      user.id,
-      3,
-      500
-    );
+    // Determine target role based on source
+    let targetRole: string | null = null;
+    if (cameFromDietitianEnrollment) {
+      targetRole = "DIETITIAN";
+    } else if (cameFromTherapistEnrollment) {
+      targetRole = "THERAPIST";
+    } else if (cameFromDietitianLogin) {
+      targetRole = "DIETITIAN";
+    }
 
-    // Fetch full user data - try regardless of role fetch result to handle all cases
-    const { data: fetchedUser, error: fetchError } = await supabaseAdmin
-      .from("users")
-      .select("id, role, email, name, image, account_status, email_verified, signup_source")
-      .eq("id", user.id)
-      .single();
+    // If we have a target role, check for existing account with (email, role)
+    if (targetRole && user.email) {
+      const { data: existingUserByEmailRole, error: emailRoleError } = await supabaseAdmin
+        .from("users")
+        .select("id, role, email, name, image, account_status, email_verified, signup_source, auth_user_id")
+        .eq("email", user.email.toLowerCase().trim())
+        .eq("role", targetRole)
+        .single();
 
-    if (!fetchError && fetchedUser) {
-      dbUser = fetchedUser;
-      
+      if (!emailRoleError && existingUserByEmailRole) {
+        // Account with this email+role exists
+        dbUser = existingUserByEmailRole;
+        
+        // Update auth_user_id if not set (for backward compatibility)
+        if (!dbUser.auth_user_id) {
+          await supabaseAdmin
+            .from("users")
+            .update({ auth_user_id: user.id })
+            .eq("id", dbUser.id);
+        }
+        
+        // Update last sign-in
+        await supabaseAdmin
+          .from("users")
+          .update({
+            last_sign_in_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            ...(googleImage && !dbUser.image ? { image: googleImage } : {}),
+          })
+          .eq("id", dbUser.id);
+
+        console.info("AuthCallbackFoundExistingAccountByEmailRole", {
+          userId: user.id,
+          dbUserId: dbUser.id,
+          email: user.email,
+          role: dbUser.role,
+          targetRole,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
+    // If we didn't find a user by (email, role), try to find by auth_user_id (for backward compatibility)
+    if (!dbUser) {
+      const { data: fetchedUserByAuthId, error: fetchErrorByAuthId } = await supabaseAdmin
+        .from("users")
+        .select("id, role, email, name, image, account_status, email_verified, signup_source, auth_user_id")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+
+      if (!fetchErrorByAuthId && fetchedUserByAuthId) {
+        // If we have a target role and the found user doesn't match, we need to create a new account
+        if (targetRole && fetchedUserByAuthId.role !== targetRole) {
+          // User exists with different role - will create new account below
+          console.info("AuthCallbackUserExistsWithDifferentRole", {
+            userId: user.id,
+            existingRole: fetchedUserByAuthId.role,
+            targetRole,
+            timestamp: new Date().toISOString(),
+          });
+        } else {
+          dbUser = fetchedUserByAuthId;
+        }
+      }
+    }
+
+    // Fallback: try to get by id (for backward compatibility with old accounts)
+    if (!dbUser) {
+      const { data: fetchedUser, error: fetchError } = await supabaseAdmin
+        .from("users")
+        .select("id, role, email, name, image, account_status, email_verified, signup_source, auth_user_id")
+        .eq("id", user.id)
+        .single();
+
+      if (!fetchError && fetchedUser) {
+        dbUser = fetchedUser;
+        
+        // Update auth_user_id if not set
+        if (!dbUser.auth_user_id) {
+          await supabaseAdmin
+            .from("users")
+            .update({ auth_user_id: user.id })
+            .eq("id", dbUser.id);
+        }
+      }
+    }
+
+    // Update existing user if found
+    if (dbUser) {
       // If this is admin email and user is not ADMIN, update role to ADMIN
       const shouldBeAdmin = isAdminEmail && dbUser.role !== "ADMIN";
       
@@ -195,10 +277,15 @@ export async function GET(request: NextRequest) {
         updateData.signup_source = signupSource;
       }
       
+      // Ensure auth_user_id is set
+      if (!dbUser.auth_user_id) {
+        updateData.auth_user_id = user.id;
+      }
+      
       await supabaseAdmin
         .from("users")
         .update(updateData)
-        .eq("id", user.id);
+        .eq("id", dbUser.id);
       
       // Update dbUser if role was changed
       if (shouldBeAdmin) {
@@ -207,36 +294,32 @@ export async function GET(request: NextRequest) {
 
       console.info("AuthCallbackUserUpdated", {
         userId: user.id,
+        dbUserId: dbUser.id,
         role: dbUser.role,
         isAdminEmail,
-        timestamp: new Date().toISOString(),
-      });
-    } else if (fetchError?.code === "PGRST116" || roleError === "User role not found") {
-      // User doesn't exist - will create below
-      console.info("AuthCallbackUserNotFound", {
-        userId: user.id,
-        timestamp: new Date().toISOString(),
-      });
-    } else if (fetchError || roleError) {
-      // Other error - log but continue
-      console.warn("AuthCallbackUserFetchError", {
-        fetchError: fetchError?.message,
-        roleError: roleError,
-        userId: user.id,
         timestamp: new Date().toISOString(),
       });
     }
 
     // If user doesn't exist, create new user
     if (!dbUser) {
-      // Determine initial role based on email (admin) or login source (default to USER)
-      // Admin email always gets ADMIN role, others start as USER (enrollment will upgrade to DIETITIAN)
-      const initialRole = isAdminEmail ? "ADMIN" : "USER";
+      // Determine initial role based on:
+      // 1. Admin email → ADMIN
+      // 2. Target role from source (DIETITIAN or THERAPIST) → use that role
+      // 3. Default → USER
+      const initialRole = isAdminEmail 
+        ? "ADMIN" 
+        : (targetRole || "USER");
+      
+      // Generate a new UUID for the user record (not using auth user ID directly)
+      // This allows same email to have multiple accounts with different roles
+      const newUserId = randomUUID();
       
       const { data: newUser, error: createError } = await supabaseAdmin
         .from("users")
         .insert({
-          id: user.id,
+          id: newUserId, // Use generated UUID, not auth user ID
+          auth_user_id: user.id, // Link to Supabase Auth account
           email: user.email!,
           name: userMetadata?.name || userMetadata?.full_name || user.email!.split("@")[0],
           image: googleImage,
@@ -254,32 +337,47 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (createError) {
-        // If insert fails (e.g., race condition), try to fetch again with retry
+        // If insert fails (e.g., race condition or unique constraint violation)
         if (createError.code === "23505") {
-          // Unique constraint violation - user was created by another request
-          const { role: retryRole } = await getUserRoleWithRetry(
-            supabaseAdmin,
-            user.id,
-            3,
-            500
-          );
-
-          if (retryRole) {
-            // User exists now - fetch full data and continue
+          // Unique constraint violation - check if account with (email, role) was created by another request
+          if (targetRole && user.email) {
             const { data: existingUser } = await supabaseAdmin
               .from("users")
-              .select("id, role, account_status")
-              .eq("id", user.id)
+              .select("id, role, account_status, auth_user_id")
+              .eq("email", user.email.toLowerCase().trim())
+              .eq("role", targetRole)
               .single();
 
             if (existingUser) {
               dbUser = existingUser;
+              
+              // Update auth_user_id if not set
+              if (!dbUser.auth_user_id) {
+                await supabaseAdmin
+                  .from("users")
+                  .update({ auth_user_id: user.id })
+                  .eq("id", dbUser.id);
+              }
+            }
+          }
+          
+          // If still no user found, try by auth_user_id
+          if (!dbUser) {
+            const { data: existingUserByAuthId } = await supabaseAdmin
+              .from("users")
+              .select("id, role, account_status, auth_user_id")
+              .eq("auth_user_id", user.id)
+              .maybeSingle();
+
+            if (existingUserByAuthId) {
+              dbUser = existingUserByAuthId;
             }
           }
         } else {
           console.error("AuthCallbackCreateUserError", {
             error: createError,
             userId: user.id,
+            newUserId,
             timestamp: new Date().toISOString(),
           });
         }
@@ -287,9 +385,11 @@ export async function GET(request: NextRequest) {
         createdUser = newUser;
         dbUser = newUser;
         console.info("AuthCallbackUserCreated", {
-          userId: newUser.id,
+          authUserId: user.id,
+          dbUserId: newUser.id,
           role: newUser.role,
-          source: cameFromDietitianLogin ? "dietitian-login" : "regular",
+          email: newUser.email,
+          source: cameFromDietitianEnrollment ? "dietitian-enrollment" : cameFromTherapistEnrollment ? "therapist-enrollment" : "regular",
           timestamp: new Date().toISOString(),
         });
       }

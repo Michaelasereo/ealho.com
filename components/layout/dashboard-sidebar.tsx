@@ -23,29 +23,43 @@ import {
   X
 } from "lucide-react";
 
-// Navigation items - will be adjusted based on pathname
-const getNavigation = (pathname: string | null) => {
-  const isTherapistDashboard = pathname?.startsWith("/therapist-dashboard");
-  const basePath = isTherapistDashboard ? "/therapist-dashboard" : "/dashboard";
-  
-  return [
-    { name: "Dashboard", href: basePath, icon: LayoutDashboard },
-    { name: "Event Types", href: `${basePath}/event-types`, icon: Link2 },
+const navigation = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Event Types", href: "/dashboard/event-types", icon: Link2 },
   { 
     name: "Bookings", 
-      href: `${basePath}/bookings`, 
+    href: "/dashboard/bookings", 
     icon: Calendar,
     subItems: [
-        { name: "Upcoming", href: `${basePath}/bookings/upcoming` },
-        { name: "Past", href: `${basePath}/bookings/past` },
-        { name: "Canceled", href: `${basePath}/bookings/canceled` },
+      { name: "Upcoming", href: "/dashboard/bookings/upcoming" },
+      { name: "Past", href: "/dashboard/bookings/past" },
+      { name: "Canceled", href: "/dashboard/bookings/canceled" },
     ]
   },
-    { name: "Session Request", href: `${basePath}/session-request`, icon: Send },
-    { name: "Availability", href: `${basePath}/availability`, icon: Clock },
-    { name: "Assessment Tests", href: `${basePath}/meal-plan`, icon: FileText },
+  { name: "Session Request", href: "/dashboard/session-request", icon: Send },
+  { name: "Availability", href: "/dashboard/availability", icon: Clock },
+  { name: "Assessment Tests", href: "/dashboard/meal-plan", icon: FileText },
 ];
-};
+
+// Therapist-specific navigation items
+const therapistNavigation = [
+  { name: "Dashboard", href: "/therapist-dashboard", icon: LayoutDashboard },
+  { name: "Event Types", href: "/therapist-dashboard/event-types", icon: Link2 },
+  { 
+    name: "Bookings", 
+    href: "/therapist-dashboard/bookings", 
+    icon: Calendar,
+    subItems: [
+      { name: "Upcoming", href: "/therapist-dashboard/bookings/upcoming" },
+      { name: "Past", href: "/therapist-dashboard/bookings/past" },
+      { name: "Canceled", href: "/therapist-dashboard/bookings/canceled" },
+    ]
+  },
+  { name: "Session Request", href: "/therapist-dashboard/session-request", icon: Send },
+  { name: "Availability", href: "/therapist-dashboard/availability", icon: Clock },
+  { name: "Session Notes", href: "/therapist-dashboard/session-notes", icon: FileText },
+  { name: "Assessment Tests", href: "/therapist-dashboard/meal-plan", icon: FileText },
+];
 
 interface DashboardSidebarProps {
   isOpen?: boolean;
@@ -59,10 +73,6 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
   
   // Get profile from AuthProvider context - single source of truth
   const { profile: userProfile, signOut } = useAuth();
-  
-  // Determine if this is therapist dashboard
-  const isTherapistDashboard = pathname?.startsWith("/therapist-dashboard");
-  const navigation = getNavigation(pathname);
 
   // Prevent hydration mismatch by only rendering image after mount
   useEffect(() => {
@@ -82,12 +92,11 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
 
   // Auto-expand items when on their sub-pages, and close others
   useEffect(() => {
-    const basePath = isTherapistDashboard ? "/therapist-dashboard" : "/dashboard";
     navigation.forEach((item) => {
       if (item.subItems) {
         const isOnSubPage = item.subItems.some(subItem => pathname === subItem.href);
         const isOnMainPage = pathname === item.href || 
-          (item.href !== basePath && pathname?.startsWith(item.href));
+          (item.href !== "/dashboard" && pathname?.startsWith(item.href));
         
         if (isOnSubPage || isOnMainPage) {
           setExpandedItems((prev) => {
@@ -106,7 +115,6 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
   }, [pathname]);
 
   const toggleExpanded = (itemName: string) => {
-    const basePath = isTherapistDashboard ? "/therapist-dashboard" : "/dashboard";
     setExpandedItems((prev) => {
       if (prev.includes(itemName)) {
         // Check if we're currently on a sub-page of this item
@@ -114,7 +122,7 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
         if (item?.subItems) {
           const isOnSubPage = item.subItems.some(subItem => pathname === subItem.href);
           const isOnMainPage = pathname === item.href || 
-            (item.href !== basePath && pathname?.startsWith(item.href));
+            (item.href !== "/dashboard" && pathname?.startsWith(item.href));
           
           // Don't allow closing if we're on a sub-page or main page
           if (isOnSubPage || isOnMainPage) {
@@ -180,10 +188,9 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {navigation.map((item) => {
-          const basePath = isTherapistDashboard ? "/therapist-dashboard" : "/dashboard";
+        {(pathname?.startsWith("/therapist-dashboard") ? therapistNavigation : navigation).map((item) => {
           const isActive = pathname === item.href || 
-            (item.href !== basePath && pathname?.startsWith(item.href));
+            (item.href !== "/dashboard" && pathname?.startsWith(item.href));
           const isExpanded = expandedItems.includes(item.name);
           const hasSubItems = item.subItems && item.subItems.length > 0;
           
@@ -270,7 +277,7 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
             ) : (
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#404040] to-[#525252] flex items-center justify-center">
                 <span className="text-white text-xs font-semibold">
-                  {userProfile?.name ? getInitials(userProfile.name) : (isTherapistDashboard ? "T" : "D")}
+                  {userProfile?.name ? getInitials(userProfile.name) : "D"}
                 </span>
             </div>
             )}
@@ -282,12 +289,12 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
           </div>
           <div className="flex-1 text-left">
             <div className="text-sm font-medium text-[#D4D4D4]">
-              {userProfile?.name || (isTherapistDashboard ? "Therapist" : "Dietitian")}
+              {userProfile?.name || "Dietitian"}
             </div>
           </div>
         </div>
         <Link
-          href={isTherapistDashboard ? "/therapist-dashboard/settings/profile" : "/dashboard/settings/profile"}
+          href="/dashboard/settings/profile"
           className="flex items-center gap-2 text-sm text-[#D4D4D4] hover:text-[#f9fafb] hover:bg-[#374151] transition-colors rounded px-2 py-1"
         >
           <Settings className="h-4 w-4" />
@@ -301,7 +308,7 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
           Refer and earn
         </div>
         <Link
-          href={isTherapistDashboard ? "/therapist-dashboard/settings/profile" : "/dashboard/settings/profile"}
+          href="/dashboard/settings/profile"
           className="flex items-center gap-2 text-sm text-[#D4D4D4] hover:text-[#f9fafb] hover:bg-[#374151] transition-colors rounded px-2 py-1"
         >
           <Settings className="h-4 w-4" />

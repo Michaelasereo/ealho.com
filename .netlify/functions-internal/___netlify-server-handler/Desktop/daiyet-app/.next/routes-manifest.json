@@ -80,6 +80,14 @@
       "namedRegex": "^/api/bookings/(?<nxtPid>[^/]+?)/generate\\-meet\\-link(?:/)?$"
     },
     {
+      "page": "/api/debug/session-request-flow/[id]",
+      "regex": "^/api/debug/session\\-request\\-flow/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/debug/session\\-request\\-flow/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
       "page": "/api/dietitians/by-slug/[slug]",
       "regex": "^/api/dietitians/by\\-slug/([^/]+?)(?:/)?$",
       "routeKeys": {
@@ -118,6 +126,14 @@
         "nxtPid": "nxtPid"
       },
       "namedRegex": "^/api/session\\-request/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/therapists/by-slug/[slug]",
+      "regex": "^/api/therapists/by\\-slug/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/api/therapists/by\\-slug/(?<nxtPslug>[^/]+?)(?:/)?$"
     },
     {
       "page": "/api/user/approve-request/[id]",
@@ -174,6 +190,30 @@
         "nxtPslug": "nxtPslug"
       },
       "namedRegex": "^/Dietitian/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/Therapist/[slug]",
+      "regex": "^/Therapist/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/Therapist/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/availability/[id]",
+      "regex": "^/therapist\\-dashboard/availability/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/therapist\\-dashboard/availability/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/event-types/[id]",
+      "regex": "^/therapist\\-dashboard/event\\-types/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/therapist\\-dashboard/event\\-types/(?<nxtPid>[^/]+?)(?:/)?$"
     }
   ],
   "staticRoutes": [
@@ -292,6 +332,12 @@
       "namedRegex": "^/api/admin/check\\-user(?:/)?$"
     },
     {
+      "page": "/api/admin/cleanup-therapy-users",
+      "regex": "^/api/admin/cleanup\\-therapy\\-users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/cleanup\\-therapy\\-users(?:/)?$"
+    },
+    {
       "page": "/api/admin/create-users",
       "regex": "^/api/admin/create\\-users(?:/)?$",
       "routeKeys": {},
@@ -400,10 +446,64 @@
       "namedRegex": "^/api/debug/dns(?:/)?$"
     },
     {
+      "page": "/api/debug/meal-plan-check",
+      "regex": "^/api/debug/meal\\-plan\\-check(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/meal\\-plan\\-check(?:/)?$"
+    },
+    {
+      "page": "/api/debug/meal-plan-flow",
+      "regex": "^/api/debug/meal\\-plan\\-flow(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/meal\\-plan\\-flow(?:/)?$"
+    },
+    {
+      "page": "/api/debug/meal-plan-link",
+      "regex": "^/api/debug/meal\\-plan\\-link(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/meal\\-plan\\-link(?:/)?$"
+    },
+    {
+      "page": "/api/debug/meal-plan-send",
+      "regex": "^/api/debug/meal\\-plan\\-send(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/meal\\-plan\\-send(?:/)?$"
+    },
+    {
+      "page": "/api/debug/meal-plan-upload",
+      "regex": "^/api/debug/meal\\-plan\\-upload(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/meal\\-plan\\-upload(?:/)?$"
+    },
+    {
+      "page": "/api/debug/meal-plans-check",
+      "regex": "^/api/debug/meal\\-plans\\-check(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/meal\\-plans\\-check(?:/)?$"
+    },
+    {
+      "page": "/api/debug/session-requests",
+      "regex": "^/api/debug/session\\-requests(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/session\\-requests(?:/)?$"
+    },
+    {
+      "page": "/api/debug/storage-integrity",
+      "regex": "^/api/debug/storage\\-integrity(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/storage\\-integrity(?:/)?$"
+    },
+    {
       "page": "/api/debug/supabase",
       "regex": "^/api/debug/supabase(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/debug/supabase(?:/)?$"
+    },
+    {
+      "page": "/api/debug/test-meal-plan-query",
+      "regex": "^/api/debug/test\\-meal\\-plan\\-query(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/test\\-meal\\-plan\\-query(?:/)?$"
     },
     {
       "page": "/api/debug/timeslots",
@@ -430,10 +530,40 @@
       "namedRegex": "^/api/debug/timezone\\-simple(?:/)?$"
     },
     {
+      "page": "/api/debug/unapprove-all-meal-plans",
+      "regex": "^/api/debug/unapprove\\-all\\-meal\\-plans(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/unapprove\\-all\\-meal\\-plans(?:/)?$"
+    },
+    {
+      "page": "/api/debug/unapprove-request",
+      "regex": "^/api/debug/unapprove\\-request(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/unapprove\\-request(?:/)?$"
+    },
+    {
+      "page": "/api/debug/upload-flow",
+      "regex": "^/api/debug/upload\\-flow(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/upload\\-flow(?:/)?$"
+    },
+    {
       "page": "/api/debug/user",
       "regex": "^/api/debug/user(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/debug/user(?:/)?$"
+    },
+    {
+      "page": "/api/debug/user-session-requests",
+      "regex": "^/api/debug/user\\-session\\-requests(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/user\\-session\\-requests(?:/)?$"
+    },
+    {
+      "page": "/api/debug/user-session-state",
+      "regex": "^/api/debug/user\\-session\\-state(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug/user\\-session\\-state(?:/)?$"
     },
     {
       "page": "/api/dietitians",
@@ -482,6 +612,12 @@
       "regex": "^/api/meal\\-plans(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/meal\\-plans(?:/)?$"
+    },
+    {
+      "page": "/api/meal-plans/delete",
+      "regex": "^/api/meal\\-plans/delete(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/meal\\-plans/delete(?:/)?$"
     },
     {
       "page": "/api/meal-plans/stream",
@@ -554,6 +690,24 @@
       "regex": "^/api/test\\-auth/test\\-exchange(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/test\\-auth/test\\-exchange(?:/)?$"
+    },
+    {
+      "page": "/api/therapists",
+      "regex": "^/api/therapists(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/therapists(?:/)?$"
+    },
+    {
+      "page": "/api/therapists/check-email",
+      "regex": "^/api/therapists/check\\-email(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/therapists/check\\-email(?:/)?$"
+    },
+    {
+      "page": "/api/therapists/enroll",
+      "regex": "^/api/therapists/enroll(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/therapists/enroll(?:/)?$"
     },
     {
       "page": "/api/user/booking-history",
@@ -718,6 +872,12 @@
       "namedRegex": "^/dashboard/settings/profile(?:/)?$"
     },
     {
+      "page": "/debug/user-session-state",
+      "regex": "^/debug/user\\-session\\-state(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/debug/user\\-session\\-state(?:/)?$"
+    },
+    {
       "page": "/dietitian-enrollment",
       "regex": "^/dietitian\\-enrollment(?:/)?$",
       "routeKeys": {},
@@ -770,6 +930,150 @@
       "regex": "^/test\\-auth/callback(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/test\\-auth/callback(?:/)?$"
+    },
+    {
+      "page": "/test-storage",
+      "regex": "^/test\\-storage(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/test\\-storage(?:/)?$"
+    },
+    {
+      "page": "/test-upload-flow",
+      "regex": "^/test\\-upload\\-flow(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/test\\-upload\\-flow(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard",
+      "regex": "^/therapist\\-dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/availability",
+      "regex": "^/therapist\\-dashboard/availability(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/availability(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/availability/overrides",
+      "regex": "^/therapist\\-dashboard/availability/overrides(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/availability/overrides(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/bookings/canceled",
+      "regex": "^/therapist\\-dashboard/bookings/canceled(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/bookings/canceled(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/bookings/past",
+      "regex": "^/therapist\\-dashboard/bookings/past(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/bookings/past(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/bookings/recurring",
+      "regex": "^/therapist\\-dashboard/bookings/recurring(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/bookings/recurring(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/bookings/unconfirmed",
+      "regex": "^/therapist\\-dashboard/bookings/unconfirmed(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/bookings/unconfirmed(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/bookings/upcoming",
+      "regex": "^/therapist\\-dashboard/bookings/upcoming(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/bookings/upcoming(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/event-types",
+      "regex": "^/therapist\\-dashboard/event\\-types(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/event\\-types(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/meal-plan",
+      "regex": "^/therapist\\-dashboard/meal\\-plan(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/meal\\-plan(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/session-request",
+      "regex": "^/therapist\\-dashboard/session\\-request(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/session\\-request(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/settings",
+      "regex": "^/therapist\\-dashboard/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/settings(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/settings/calendars",
+      "regex": "^/therapist\\-dashboard/settings/calendars(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/settings/calendars(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/settings/general",
+      "regex": "^/therapist\\-dashboard/settings/general(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/settings/general(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/settings/notifications",
+      "regex": "^/therapist\\-dashboard/settings/notifications(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/settings/notifications(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/settings/out-of-office",
+      "regex": "^/therapist\\-dashboard/settings/out\\-of\\-office(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/settings/out\\-of\\-office(?:/)?$"
+    },
+    {
+      "page": "/therapist-dashboard/settings/profile",
+      "regex": "^/therapist\\-dashboard/settings/profile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-dashboard/settings/profile(?:/)?$"
+    },
+    {
+      "page": "/therapist-enrollment",
+      "regex": "^/therapist\\-enrollment(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-enrollment(?:/)?$"
+    },
+    {
+      "page": "/therapist-login",
+      "regex": "^/therapist\\-login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist\\-login(?:/)?$"
+    },
+    {
+      "page": "/therapy",
+      "regex": "^/therapy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapy(?:/)?$"
+    },
+    {
+      "page": "/therapy/book",
+      "regex": "^/therapy/book(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapy/book(?:/)?$"
+    },
+    {
+      "page": "/therapy/book-a-call",
+      "regex": "^/therapy/book\\-a\\-call(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapy/book\\-a\\-call(?:/)?$"
     },
     {
       "page": "/user-dashboard",

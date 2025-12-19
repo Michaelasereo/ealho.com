@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Settings } from "lucide-react";
@@ -15,7 +14,6 @@ interface MobileHeaderProps {
 export function MobileHeader({ onMenuClick, title = "Cal.com" }: MobileHeaderProps) {
   const { profile } = useAuth();
   const pathname = usePathname();
-  const isTherapistDashboard = pathname?.startsWith("/therapist-dashboard");
 
   const getInitials = (name: string) => {
     return name
@@ -25,10 +23,6 @@ export function MobileHeader({ onMenuClick, title = "Cal.com" }: MobileHeaderPro
       .toUpperCase()
       .slice(0, 2);
   };
-
-  const settingsHref = isTherapistDashboard ? "/therapist-dashboard/settings" : "/dashboard/settings";
-  const profileHref = isTherapistDashboard ? "/therapist-dashboard/settings/profile" : "/dashboard/settings/profile";
-  const fallbackInitial = isTherapistDashboard ? "T" : "D";
 
   return (
     <header className="sticky top-0 z-40 bg-[#171717] border-b border-[#374151] lg:hidden">
@@ -46,7 +40,7 @@ export function MobileHeader({ onMenuClick, title = "Cal.com" }: MobileHeaderPro
               height={32}
               className="h-8 w-auto"
             />
-            {isTherapistDashboard && (
+            {pathname?.startsWith("/therapist-dashboard") && (
               <span className="text-xs font-medium text-white/60">Therapy</span>
             )}
           </Link>
@@ -54,14 +48,14 @@ export function MobileHeader({ onMenuClick, title = "Cal.com" }: MobileHeaderPro
         {/* Right: Settings, Profile */}
         <div className="flex items-center gap-2">
           <Link
-            href={settingsHref}
+            href="/dashboard/settings"
             className="p-2 text-[#D4D4D4] hover:text-[#f9fafb] hover:bg-[#374151] rounded-md transition-colors"
             aria-label="Settings"
           >
             <Settings className="h-5 w-5" />
           </Link>
           <Link
-            href={profileHref}
+            href="/dashboard/settings/profile"
             className="relative"
             aria-label="Profile"
           >
@@ -78,7 +72,7 @@ export function MobileHeader({ onMenuClick, title = "Cal.com" }: MobileHeaderPro
             ) : (
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#404040] to-[#525252] flex items-center justify-center border-2 border-[#374151]">
                 <span className="text-white text-xs font-semibold">
-                  {profile?.name ? getInitials(profile.name) : fallbackInitial}
+                  {profile?.name ? getInitials(profile.name) : "D"}
                 </span>
               </div>
             )}
@@ -97,27 +91,6 @@ export function MobileHeader({ onMenuClick, title = "Cal.com" }: MobileHeaderPro
 // User dashboard mobile header
 export function UserMobileHeader({ onMenuClick }: { onMenuClick?: () => void }) {
   const { profile } = useAuth();
-  const [signupSource, setSignupSource] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Fetch signup_source to determine if user came from dietitian or therapy route
-    const fetchSignupSource = async () => {
-      try {
-        const response = await fetch("/api/user/profile", {
-          credentials: "include",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.profile?.signup_source) {
-            setSignupSource(data.profile.signup_source);
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching signup source:", err);
-      }
-    };
-    fetchSignupSource();
-  }, []);
 
   const getInitials = (name: string) => {
     return name
@@ -127,9 +100,6 @@ export function UserMobileHeader({ onMenuClick }: { onMenuClick?: () => void }) 
       .toUpperCase()
       .slice(0, 2);
   };
-
-  // Show "Therapy" only if signup_source is "therapy", otherwise show "Diet"
-  const logoText = signupSource === "therapy" ? "Therapy" : "Diet";
 
   return (
     <header className="sticky top-0 z-40 bg-[#171717] border-b border-[#374151] lg:hidden">
@@ -147,7 +117,7 @@ export function UserMobileHeader({ onMenuClick }: { onMenuClick?: () => void }) 
               height={32}
               className="h-8 w-auto"
             />
-            <span className="text-xs font-medium text-white/60">{logoText}</span>
+            <span className="text-xs font-medium text-white/60">Therapy</span>
           </Link>
 
         {/* Right: Settings, Profile */}

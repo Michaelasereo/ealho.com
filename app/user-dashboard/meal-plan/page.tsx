@@ -47,36 +47,6 @@ export default function UserMealPlanPage() {
   const [selectedPurchase, setSelectedPurchase] = useState<SelectedPurchase | null>(null);
   const [pendingPlans, setPendingPlans] = useState<MealPlan[]>([]);
   const [sessionRequests, setSessionRequests] = useState<any[]>([]);
-  const [signupSource, setSignupSource] = useState<string | null>(null);
-
-  // Fetch signup_source to determine labels
-  useEffect(() => {
-    const fetchSignupSource = async () => {
-      try {
-        const response = await fetch("/api/user/profile", {
-          credentials: "include",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.profile?.signup_source) {
-            setSignupSource(data.profile.signup_source);
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching signup source:", err);
-      }
-    };
-    fetchSignupSource();
-  }, []);
-
-  // Determine labels based on signup_source
-  const pageTitle = signupSource === "therapy" ? "Assessment Tests" : "Meal Plans";
-  const pageDescription = signupSource === "therapy" 
-    ? "Browse available assessment test packages and view your purchased tests."
-    : "Browse available meal plan packages and view your purchased meal plans.";
-  const pendingSectionTitle = signupSource === "therapy" ? "Pending Assessment Tests" : "Pending Meal Plans";
-  const availableSectionTitle = signupSource === "therapy" ? "Available Assessment Tests" : "Available Meal Plans";
-  const receivedSectionTitle = signupSource === "therapy" ? "Received Assessment Tests" : "Received Meal Plans";
 
   // Use SSE for real-time meal plans (handles both USER and DIETITIAN roles)
   const { mealPlans, isConnected, error: mealPlansError } = useMealPlansStream();
@@ -336,15 +306,15 @@ export default function UserMealPlanPage() {
         <div className="p-6 lg:p-8 pt-14 lg:pt-8">
           {/* Header Section */}
           <div className="mb-6">
-            <h1 className="text-xl lg:text-[15px] font-semibold text-[#f9fafb] mb-1">{pageTitle}</h1>
+            <h1 className="text-xl lg:text-[15px] font-semibold text-[#f9fafb] mb-1">Assessment Tests</h1>
             <p className="text-[13px] text-[#9ca3af] mb-6">
-              {pageDescription}
+              Browse available assessment test packages and view your purchased tests.
             </p>
           </div>
 
-          {/* Pending Section */}
+          {/* Pending Assessment Tests Section */}
           <div className="mb-8">
-            <h2 className="text-sm font-semibold text-[#f9fafb] mb-4">{pendingSectionTitle}</h2>
+            <h2 className="text-sm font-semibold text-[#f9fafb] mb-4">Pending Assessment Tests</h2>
             {pendingPlans.length > 0 ? (
               <div className="space-y-4">
                 {pendingPlans.map((plan) => (
@@ -397,7 +367,7 @@ export default function UserMealPlanPage() {
 
           {/* Available Packages Section */}
           <div className="mb-8">
-            <h2 className="text-sm font-semibold text-[#f9fafb] mb-4">{availableSectionTitle}</h2>
+            <h2 className="text-sm font-semibold text-[#f9fafb] mb-4">Available Assessment Tests</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {MEAL_PLAN_PACKAGES.map((pkg) => (
                 <div
@@ -433,7 +403,7 @@ export default function UserMealPlanPage() {
 
           {/* Received Assessment Tests Section */}
           <div className="mb-6">
-            <h2 className="text-sm font-semibold text-[#f9fafb] mb-4">{receivedSectionTitle}</h2>
+            <h2 className="text-sm font-semibold text-[#f9fafb] mb-4">Received Assessment Tests</h2>
             {(receivedMealPlans.length > 0 || receivedFromRequests.length > 0) ? (
               <div className="space-y-4">
                 {/* Meal plans from meal_plans table */}

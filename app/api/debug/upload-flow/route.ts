@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
         step1_sessionRequest: {
           found: !!sessionRequest,
           data: sessionRequest,
-          error: reqError?.message || null,
+          error: (reqError as any)?.message || null,
         },
         step2_user: {
           found: !!user,

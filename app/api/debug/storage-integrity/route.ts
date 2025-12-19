@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
             const foundFile = files?.find((f: any) => f.name === filename);
             if (foundFile) {
               fileExists = true;
-              fileSize = foundFile.metadata?.size || foundFile.size || null;
+              fileSize = foundFile.metadata?.size || null;
             }
           }
         } catch (error: any) {

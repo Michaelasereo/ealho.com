@@ -94,6 +94,23 @@ export default async function PastBookingsPage() {
       .eq("dietitian_id", dietitianId)
       .order("start_time", { ascending: false });
 
+    // 4. Fetch session notes for these bookings
+    const bookingIds = bookingsData?.map((b: any) => b.id) || [];
+    const { data: sessionNotesData } = bookingIds.length > 0
+      ? await supabaseAdmin
+          .from("session_notes")
+          .select("id, booking_id, status")
+          .in("booking_id", bookingIds)
+      : { data: null, error: null };
+
+    // Create a map of booking_id -> session_note
+    const notesMap = new Map();
+    if (sessionNotesData) {
+      sessionNotesData.forEach((note: any) => {
+        notesMap.set(note.booking_id, note);
+      });
+    }
+
     // Transform and filter bookings to match the expected format
     const bookings: Booking[] =
       bookingsData && !bookingsError
@@ -104,24 +121,31 @@ export default async function PastBookingsPage() {
               const isCompleted = b.status === "COMPLETED";
               return isPast || isCompleted;
             })
-            .map((b: any) => ({
-              id: b.id,
-              date: new Date(b.start_time),
-              startTime: new Date(b.start_time),
-              endTime: new Date(b.end_time),
-              title: b.title || b.event_types?.title || "Consultation",
-              eventTypeSlug: b.event_types?.slug || null,
-              description: b.description || "",
-              message: b.description,
-              participants: [
-                "You",
-                b.user?.name || b.user?.email || "Client",
-              ],
-              meetingLink: b.meeting_link || undefined,
-            }))
+            .map((b: any) => {
+              const note = notesMap.get(b.id);
+              return {
+                id: b.id,
+                date: new Date(b.start_time),
+                startTime: new Date(b.start_time),
+                endTime: new Date(b.end_time),
+                title: b.title || b.event_types?.title || "Consultation",
+                eventTypeSlug: b.event_types?.slug || null,
+                description: b.description || "",
+                message: b.description,
+                participants: [
+                  "You",
+                  b.user?.name || b.user?.email || "Client",
+                ],
+                meetingLink: b.meeting_link || undefined,
+                sessionNote: note ? {
+                  id: note.id,
+                  status: note.status,
+                } : null,
+              };
+            })
         : [];
 
-    // 4. Pass data to client component
+    // 5. Pass data to client component
     return <BookingsPageClient bookings={bookings} type="past" />;
   } catch (error) {
     console.error("Past Bookings: Server error", error);

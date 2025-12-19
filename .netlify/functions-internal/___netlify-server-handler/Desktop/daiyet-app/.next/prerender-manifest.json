@@ -477,6 +477,31 @@
         "x-next-revalidate-tag-token"
       ]
     },
+    "/debug/user-session-state": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/debug/user-session-state",
+      "dataRoute": "/debug/user-session-state.rsc",
+      "prefetchDataRoute": null,
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
     "/dietitian-enrollment": {
       "experimentalBypassFor": [
         {
@@ -707,7 +732,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/user-dashboard/book-a-call": {
+    "/test-storage": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -720,8 +745,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/user-dashboard/book-a-call",
-      "dataRoute": "/user-dashboard/book-a-call.rsc",
+      "srcRoute": "/test-storage",
+      "dataRoute": "/test-storage.rsc",
       "prefetchDataRoute": null,
       "allowHeader": [
         "host",
@@ -732,7 +757,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/user-dashboard/meal-plan": {
+    "/test-upload-flow": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -745,8 +770,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/user-dashboard/meal-plan",
-      "dataRoute": "/user-dashboard/meal-plan.rsc",
+      "srcRoute": "/test-upload-flow",
+      "dataRoute": "/test-upload-flow.rsc",
       "prefetchDataRoute": null,
       "allowHeader": [
         "host",
@@ -757,7 +782,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/user-dashboard": {
+    "/therapist-enrollment": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -770,8 +795,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/user-dashboard",
-      "dataRoute": "/user-dashboard.rsc",
+      "srcRoute": "/therapist-enrollment",
+      "dataRoute": "/therapist-enrollment.rsc",
       "prefetchDataRoute": null,
       "allowHeader": [
         "host",
@@ -782,7 +807,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/user-dashboard/refer-and-earn": {
+    "/therapist-login": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -795,8 +820,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/user-dashboard/refer-and-earn",
-      "dataRoute": "/user-dashboard/refer-and-earn.rsc",
+      "srcRoute": "/therapist-login",
+      "dataRoute": "/therapist-login.rsc",
       "prefetchDataRoute": null,
       "allowHeader": [
         "host",
@@ -807,7 +832,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/user-dashboard/settings/notifications": {
+    "/therapy/book-a-call": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -820,8 +845,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/user-dashboard/settings/notifications",
-      "dataRoute": "/user-dashboard/settings/notifications.rsc",
+      "srcRoute": "/therapy/book-a-call",
+      "dataRoute": "/therapy/book-a-call.rsc",
       "prefetchDataRoute": null,
       "allowHeader": [
         "host",
@@ -832,7 +857,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/user-dashboard/settings": {
+    "/therapy/book": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -845,8 +870,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/user-dashboard/settings",
-      "dataRoute": "/user-dashboard/settings.rsc",
+      "srcRoute": "/therapy/book",
+      "dataRoute": "/therapy/book.rsc",
       "prefetchDataRoute": null,
       "allowHeader": [
         "host",
@@ -857,7 +882,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/user-dashboard/upcoming-meetings": {
+    "/therapy": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -870,8 +895,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/user-dashboard/upcoming-meetings",
-      "dataRoute": "/user-dashboard/upcoming-meetings.rsc",
+      "srcRoute": "/therapy",
+      "dataRoute": "/therapy.rsc",
       "prefetchDataRoute": null,
       "allowHeader": [
         "host",

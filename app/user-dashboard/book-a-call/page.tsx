@@ -51,6 +51,11 @@ function BookACallPageContent() {
     phone: "",
     city: "",
     state: "",
+    age: "",
+    occupation: "",
+    medicalCondition: "",
+    monthlyFoodBudget: "",
+    complaint: "",
   });
   
   // Therapy questions for Step 2
@@ -181,8 +186,7 @@ function BookACallPageContent() {
   
   // Smart polling for timeslots (only when all required data is available)
   const { data: availabilityData, isLoading: isLoadingAvailability } = useOptimizedAvailability({
-    userId: selectedTherapist || "",
-    userRole: "THERAPIST",
+    dietitianId: selectedTherapist || "",
     eventTypeId: selectedEventTypeId || undefined,
     startDate: selectedDate ? new Date(selectedDate) : undefined,
     endDate: selectedDate ? dayjs(selectedDate).add(1, "day").toDate() : undefined,
@@ -1811,6 +1815,64 @@ function BookACallPageContent() {
                       </select>
                       <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#9ca3af] pointer-events-none" />
                     </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-[#D4D4D4] mb-2">
+                      Type of Therapy <span className="text-red-400">*</span>
+                    </label>
+                    <div className="space-y-2">
+                      {availableEventTypes.map((eventType) => {
+                        const isSelected = therapyData.therapyType === eventType.id;
+                        return (
+                          <button
+                            key={eventType.id}
+                            type="button"
+                            onClick={() => {
+                              setTherapyData({ ...therapyData, therapyType: eventType.id });
+                              setSelectedEventTypeId(eventType.id);
+                              setEventTypePrice(eventType.price);
+                              if (validationErrors.therapyType) {
+                                setValidationErrors(prev => {
+                                  const newErrors = { ...prev };
+                                  delete newErrors.therapyType;
+                                  return newErrors;
+                                });
+                              }
+                            }}
+                            className={`w-full text-left p-4 rounded-lg border transition-all ${
+                              isSelected
+                                ? "border-white bg-[#262626] ring-1 ring-white/30"
+                                : "border-[#262626] hover:bg-[#171717]"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-white mb-1">
+                                  {eventType.title}
+                                </div>
+                                <div className="text-xs text-[#9ca3af]">
+                                  {eventType.description}
+                                </div>
+                                <div className="text-xs text-[#9ca3af] mt-1">
+                                  {eventType.length} minutes • ₦{eventType.price.toLocaleString()}
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <div className="ml-4">
+                                  <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center">
+                                    <div className="w-2 h-2 rounded-full bg-black" />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {validationErrors.therapyType && (
+                      <p className="text-xs text-red-400 mt-1">{validationErrors.therapyType}</p>
+                    )}
                   </div>
                 </div>
                 

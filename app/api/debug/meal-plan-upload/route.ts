@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       listed: !listError,
       listError: listError?.message || null,
       found: !!found,
-      size: found?.metadata?.size || found?.size || null,
+      size: found?.metadata?.size || null,
       updated_at: found?.updated_at || null,
       ownerDietitianId: dietitian.id,
     });

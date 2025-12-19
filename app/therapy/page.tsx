@@ -82,7 +82,7 @@ export default function TherapyPage() {
       {/* Nav */}
       <header className="border-b border-white/10 bg-black/30 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
-          <Link href="/therapy" className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Image
               src="/daiyet logo.svg"
               alt="Daiyet"
@@ -113,8 +113,8 @@ export default function TherapyPage() {
                 console.log('🖼️ [TherapyPage] Logo image loaded successfully');
               }}
             />
-            <span className="hidden sm:inline text-xs sm:text-sm text-white/60">Therapy</span>
-          </Link>
+            <span className="hidden sm:inline text-xs sm:text-sm text-white/60">Scheduling reinvented</span>
+          </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <Link
               href="/login?source=therapy"

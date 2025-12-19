@@ -22,7 +22,6 @@ interface Step2TherapyQuestionsProps {
     currency: string;
   }>;
   validationErrors: Record<string, string>;
-  prefillTherapistId?: string;
   onTherapyDataChange: (data: Partial<Step2TherapyQuestionsProps["therapyData"]>) => void;
   onBack: () => void;
   onContinue: () => void;
@@ -32,7 +31,6 @@ export function Step2TherapyQuestions({
   therapyData,
   availableEventTypes,
   validationErrors,
-  prefillTherapistId,
   onTherapyDataChange,
   onBack,
   onContinue,
@@ -75,18 +73,12 @@ export function Step2TherapyQuestions({
           <div>
             <label className="block text-sm font-medium text-[#D4D4D4] mb-2">
               Therapist Gender Preference
-              {prefillTherapistId && (
-                <span className="text-xs text-[#6b7280] ml-2">(Therapist already selected)</span>
-              )}
             </label>
             <div className="relative">
               <select
                 value={therapyData.therapistGenderPreference}
                 onChange={(e) => onTherapyDataChange({ therapistGenderPreference: e.target.value })}
-                disabled={!!prefillTherapistId}
-                className={`w-full bg-[#0a0a0a] border border-[#262626] text-[#f9fafb] rounded px-3 py-2 pr-8 appearance-none focus:outline-none focus:ring-0 focus:border-[#404040] ${
-                  prefillTherapistId ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+                className="w-full bg-[#0a0a0a] border border-[#262626] text-[#f9fafb] rounded px-3 py-2 pr-8 appearance-none focus:outline-none focus:ring-0 focus:border-[#404040]"
               >
                 <option value="random">No preference (Random)</option>
                 <option value="male">Male</option>
@@ -94,11 +86,6 @@ export function Step2TherapyQuestions({
               </select>
               <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#9ca3af] pointer-events-none" />
             </div>
-            {prefillTherapistId && (
-              <p className="text-xs text-[#6b7280] mt-1">
-                A therapist has been pre-selected for you. This preference will not be used.
-              </p>
-            )}
           </div>
           
           <div>
@@ -120,6 +107,53 @@ export function Step2TherapyQuestions({
               </select>
               <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#9ca3af] pointer-events-none" />
             </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-[#D4D4D4] mb-2">
+              Type of Therapy <span className="text-red-400">*</span>
+            </label>
+            <div className="space-y-2">
+              {availableEventTypes.map((eventType) => {
+                const isSelected = therapyData.therapyType === eventType.id;
+                return (
+                  <button
+                    key={eventType.id}
+                    type="button"
+                    onClick={() => onTherapyDataChange({ therapyType: eventType.id })}
+                    className={`w-full text-left p-4 rounded-lg border transition-all ${
+                      isSelected
+                        ? "border-white bg-[#262626] ring-1 ring-white/30"
+                        : "border-[#262626] hover:bg-[#171717]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-white mb-1">
+                          {eventType.title}
+                        </div>
+                        <div className="text-xs text-[#9ca3af]">
+                          {eventType.description}
+                        </div>
+                        <div className="text-xs text-[#9ca3af] mt-1">
+                          {eventType.length} minutes • ₦{eventType.price.toLocaleString()}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <div className="ml-4">
+                          <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center">
+                            <div className="w-2 h-2 rounded-full bg-black" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {validationErrors.therapyType && (
+              <p className="text-xs text-red-400 mt-1">{validationErrors.therapyType}</p>
+            )}
           </div>
         </div>
         

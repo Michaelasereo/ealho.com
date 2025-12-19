@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { BookingsList } from "@/components/bookings/BookingsList";
 import { Button } from "@/components/ui/button";
+import { FillNotesModal } from "../session-notes/FillNotesModal";
 import {
   Filter,
   Bookmark,
@@ -25,6 +27,10 @@ export interface Booking {
   participants: string[];
   meetingLink?: string;
   eventTypeSlug?: string | null;
+  sessionNote?: {
+    id: string;
+    status: "PENDING" | "COMPLETED";
+  } | null;
 }
 
 interface BookingsPageClientProps {
@@ -36,9 +42,35 @@ export default function BookingsPageClient({
   bookings: initialBookings,
   type,
 }: BookingsPageClientProps) {
+  const router = useRouter();
   const [bookings] = useState(initialBookings);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [isFillNotesModalOpen, setIsFillNotesModalOpen] = useState(false);
+
+  const handleFillNotes = async (bookingId: string, noteId?: string) => {
+    if (noteId) {
+      // Fetch the note and open modal
+      try {
+        const response = await fetch(`/api/session-notes/${noteId}`);
+        if (response.ok) {
+          const { note } = await response.json();
+          setSelectedNoteId(noteId);
+          setIsFillNotesModalOpen(true);
+        } else {
+          // Note doesn't exist or error, redirect to session notes page
+          router.push("/therapist-dashboard/session-notes");
+        }
+      } catch (error) {
+        console.error("Error fetching note:", error);
+        router.push("/therapist-dashboard/session-notes");
+      }
+    } else {
+      // No note exists, redirect to session notes page
+      router.push("/therapist-dashboard/session-notes");
+    }
+  };
 
   const totalBookings = bookings.length;
   const startIndex = (currentPage - 1) * rowsPerPage;
@@ -98,7 +130,11 @@ export default function BookingsPageClient({
           </div>
 
           {/* Bookings List */}
-          <BookingsList bookings={paginatedBookings} type={type} />
+          <BookingsList 
+            bookings={paginatedBookings} 
+            type={type}
+            onFillNotes={handleFillNotes}
+          />
 
           {/* Pagination - Only show if there are bookings */}
           {totalBookings > 0 && (
@@ -159,6 +195,24 @@ export default function BookingsPageClient({
       <div className="lg:hidden">
         <BottomNavigation />
       </div>
+
+      {/* Fill Notes Modal */}
+      {selectedNoteId && (
+        <FillNotesModal
+          isOpen={isFillNotesModalOpen}
+          onClose={() => {
+            setIsFillNotesModalOpen(false);
+            setSelectedNoteId(null);
+            router.refresh();
+          }}
+          noteId={selectedNoteId}
+          onSave={() => {
+            setIsFillNotesModalOpen(false);
+            setSelectedNoteId(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

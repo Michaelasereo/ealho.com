@@ -3,6 +3,9 @@
     "[project]/Desktop/daiyet-app/app/Dietitian/[slug]/page": [
       "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
     ],
+    "[project]/Desktop/daiyet-app/app/Therapist/[slug]/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
     "[project]/Desktop/daiyet-app/app/_not-found/page": [
       "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
     ],
@@ -114,6 +117,9 @@
     "[project]/Desktop/daiyet-app/app/dashboard/settings/profile/page": [
       "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
     ],
+    "[project]/Desktop/daiyet-app/app/debug/user-session-state/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
     "[project]/Desktop/daiyet-app/app/dietitian-enrollment/page": [
       "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
     ],
@@ -136,6 +142,84 @@
       "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
     ],
     "[project]/Desktop/daiyet-app/app/test-auth/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/test-storage/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/test-upload-flow/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/availability/[id]/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/availability/overrides/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/availability/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/bookings/canceled/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/bookings/past/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/bookings/recurring/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/bookings/unconfirmed/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/bookings/upcoming/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/event-types/[id]/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/event-types/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/meal-plan/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/session-request/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/settings/calendars/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/settings/general/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/settings/notifications/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/settings/out-of-office/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/settings/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-dashboard/settings/profile/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-enrollment/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapist-login/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapy/book-a-call/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapy/book/page": [
+      "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
+    ],
+    "[project]/Desktop/daiyet-app/app/therapy/page": [
       "static/media/83afe278b6a6bb3c-s.p.3a6ba036.woff2"
     ],
     "[project]/Desktop/daiyet-app/app/user-dashboard/book-a-call/page": [

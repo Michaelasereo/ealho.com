@@ -371,6 +371,50 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Automatically create pending session note if this is a therapist booking
+    try {
+      // Check if the dietitian is actually a therapist
+      const { data: dietitianUser } = await supabaseAdmin
+        .from("users")
+        .select("role")
+        .eq("id", finalDietitianId)
+        .single();
+
+      if (dietitianUser?.role === "THERAPIST") {
+        // Create pending session note via API
+        const noteResponse = await fetch(
+          new URL("/api/session-notes/create-pending", request.url).toString(),
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              // Forward authorization headers if present
+              ...(request.headers.get("authorization") && {
+                authorization: request.headers.get("authorization")!,
+              }),
+            },
+            body: JSON.stringify({ bookingId: booking.id }),
+          }
+        );
+
+        if (!noteResponse.ok) {
+          const errorData = await noteResponse.json().catch(() => ({}));
+          console.error(
+            `Error creating pending session note for booking ${booking.id}:`,
+            errorData
+          );
+          // Don't fail the booking if session note creation fails
+        } else {
+          console.log(
+            `Pending session note created for therapist booking ${booking.id}`
+          );
+        }
+      }
+    } catch (sessionNoteError) {
+      console.error("Error creating automatic session note:", sessionNoteError);
+      // Don't fail the booking if session note creation fails
+    }
+
     // Create payment record if paystackRef or paymentData is provided
     if (paystackRef || paymentData) {
       await supabaseAdmin.from("payments").insert({

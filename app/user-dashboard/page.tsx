@@ -345,20 +345,20 @@ export default function UserDashboardPage() {
               <div className="text-xl lg:text-2xl font-semibold text-[#f9fafb]">{upcomingMeetings.toLocaleString()}</div>
             </div>
 
-            {/* Meal Plans / Assessment Tests Card */}
+            {/* Assessment Tests Card */}
             <div className="border border-[#262626] rounded-lg px-4 lg:px-6 py-3 lg:py-4 bg-transparent flex items-center justify-between">
-              <div className="text-xs lg:text-sm text-[#9ca3af]">{signupSource === "therapy" ? "Assessment Tests" : "Meal Plans"}</div>
+              <div className="text-xs lg:text-sm text-[#9ca3af]">Assessment Tests</div>
               <div className="text-xl lg:text-2xl font-semibold text-[#f9fafb]">{mealPlansCount.toLocaleString()}</div>
             </div>
           </div>
 
-          {/* Requested Sessions & Meal Plans / Assessment Tests Section */}
+          {/* Requested Sessions & Assessment Tests Section */}
           <div className="mb-8">
             <h2 className="text-[15px] font-semibold text-[#f9fafb] mb-1">
-              Requested Sessions & {signupSource === "therapy" ? "Assessment Tests" : "Meal Plans"}
+              Requested Sessions & Assessment Tests
             </h2>
             <p className="text-[13px] text-[#9ca3af] mb-6">
-              View pending requests from your {signupSource === "therapy" ? "therapists" : "dietitians"}. {signupSource === "therapy" ? "Assessment tests" : "Meal plans"} you purchased will show a "View PDF" button once your {signupSource === "therapy" ? "therapist" : "dietitian"} sends them.
+              View pending requests from your dietitians. Assessment tests you purchased will show a "View PDF" button once your dietitian sends them.
             </p>
             {loading ? (
               <div className="text-center py-8">

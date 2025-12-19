@@ -12,11 +12,16 @@ interface Booking {
   participants: string[];
   meetingLink?: string;
   eventTypeSlug?: string | null;
+  sessionNote?: {
+    id: string;
+    status: "PENDING" | "COMPLETED";
+  } | null;
 }
 
 interface BookingsListProps {
   bookings: Booking[];
   type?: "upcoming" | "unconfirmed" | "recurring" | "past" | "canceled";
+  onFillNotes?: (bookingId: string, noteId?: string) => void;
 }
 
 const emptyStateMessages = {
@@ -42,7 +47,7 @@ const emptyStateMessages = {
   },
 };
 
-export function BookingsList({ bookings, type = "upcoming" }: BookingsListProps) {
+export function BookingsList({ bookings, type = "upcoming", onFillNotes }: BookingsListProps) {
   if (bookings.length === 0) {
     const emptyState = emptyStateMessages[type];
     
@@ -71,7 +76,7 @@ export function BookingsList({ bookings, type = "upcoming" }: BookingsListProps)
       </div>
 
       {bookings.map((booking) => (
-        <BookingCard key={booking.id} {...booking} />
+        <BookingCard key={booking.id} {...booking} onFillNotes={onFillNotes} />
       ))}
     </div>
   );

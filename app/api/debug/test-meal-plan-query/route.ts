@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         error: "Session request not found",
         requestId,
-        error: srError?.message,
+        details: srError?.message,
       }, { status: 404 });
     }
 

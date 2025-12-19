@@ -217,15 +217,68 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(signinUrl);
     }
 
-    const { data: dbUser, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("role, email_verified, account_status")
-      .eq("id", session.user.id)
-      .single();
+    // Determine target role based on route
+    let targetRole: string | null = null;
+    if (pathname.startsWith("/dashboard") && !pathname.startsWith("/therapist-dashboard")) {
+      targetRole = "DIETITIAN";
+    } else if (pathname.startsWith("/therapist-dashboard")) {
+      targetRole = "THERAPIST";
+    } else if (pathname.startsWith("/user-dashboard")) {
+      targetRole = "USER";
+    }
+
+    // Look up user by (auth_user_id, role) if we have a target role
+    let dbUser = null;
+    let userError = null;
+    
+    if (targetRole) {
+      const { data: userByAuthIdRole, error: errorByAuthIdRole } = await supabaseAdmin
+        .from("users")
+        .select("role, email_verified, account_status, id")
+        .eq("auth_user_id", session.user.id)
+        .eq("role", targetRole)
+        .maybeSingle();
+
+      if (!errorByAuthIdRole && userByAuthIdRole) {
+        dbUser = userByAuthIdRole;
+      } else {
+        userError = errorByAuthIdRole;
+      }
+    }
+
+    // Fallback: try by id (for backward compatibility)
+    if (!dbUser) {
+      const { data: userById, error: errorById } = await supabaseAdmin
+        .from("users")
+        .select("role, email_verified, account_status, id")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      if (!errorById && userById) {
+        // If we have a target role and the found user doesn't match, redirect appropriately
+        if (targetRole && userById.role !== targetRole) {
+          // User exists but with different role - redirect to their dashboard
+          const redirectPath = authConfig.redirects[normalizeRole(userById.role)] || "/";
+          return NextResponse.redirect(new URL(redirectPath, request.url));
+        }
+        dbUser = userById;
+        
+        // Update auth_user_id if not set (backward compatibility)
+        if (!dbUser.auth_user_id) {
+          await supabaseAdmin
+            .from("users")
+            .update({ auth_user_id: session.user.id })
+            .eq("id", dbUser.id);
+        }
+      } else {
+        userError = errorById;
+      }
+    }
 
     if (userError || !dbUser) {
       console.error("MiddlewareUserFetchError", {
         userId: session.user.id,
+        targetRole,
         error: userError?.message,
         timestamp: new Date().toISOString(),
       });
@@ -293,20 +346,6 @@ export async function middleware(request: NextRequest) {
     // Special check for therapist dashboard: only THERAPIST role can access
     if (pathname.startsWith("/therapist-dashboard") && userRole !== "THERAPIST") {
       console.warn("MiddlewareTherapistDashboardAccessDenied", {
-        userId: session.user.id,
-        userRole,
-        requestedPath: pathname,
-        timestamp: new Date().toISOString(),
-      });
-      
-      // Redirect to appropriate dashboard based on role
-      const redirectPath = authConfig.redirects[userRole] || "/";
-      return NextResponse.redirect(new URL(redirectPath, request.url));
-    }
-    
-    // Special check for user dashboard: only USER role can access
-    if (pathname.startsWith("/user-dashboard") && userRole !== "USER") {
-      console.warn("MiddlewareUserDashboardAccessDenied", {
         userId: session.user.id,
         userRole,
         requestedPath: pathname,

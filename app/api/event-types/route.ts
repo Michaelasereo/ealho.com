@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
           role: currentUser?.role 
         });
         return NextResponse.json(
-          { error: "Forbidden: Therapist or Dietitian access required" },
+          { error: "Forbidden: Dietitian access required" },
           { status: 403 }
         );
       }

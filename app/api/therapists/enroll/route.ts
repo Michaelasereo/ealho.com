@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createRouteHandlerClientFromRequest, createAdminClientServer } from "@/lib/supabase/server";
 import { getCookieHeader } from "@/lib/supabase/server";
 import { authConfig } from "@/lib/auth/config";
+import { randomUUID } from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if user already exists
+    // Check if user already exists with THERAPIST role
     let supabaseAdmin;
     try {
       supabaseAdmin = createAdminClientServer();
@@ -135,15 +136,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for existing account with (email, THERAPIST)
+    const { data: existingTherapistAccount, error: checkTherapistError } = await supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("email", email.toLowerCase().trim())
+      .eq("role", "THERAPIST")
+      .single();
+
+    if (checkTherapistError && checkTherapistError.code !== "PGRST116") {
+      // PGRST116 is "not found" which is OK, but other errors are not
+      console.error("Error checking existing therapist account:", {
+        error: checkTherapistError.message,
+        code: checkTherapistError.code,
+      });
+      return NextResponse.json(
+        { error: "Failed to check user existence", details: checkTherapistError.message },
+        { status: 500 }
+      );
+    }
+
+    // If account with (email, THERAPIST) exists, return error
+    if (existingTherapistAccount) {
+      return NextResponse.json(
+        { 
+          error: "Account already exists", 
+          message: "This email is already registered as a therapist. Please login to access your account.",
+          existingAccount: true
+        },
+        { status: 400 }
+      );
+    }
+
+    // Also check if user exists by auth_user_id (for backward compatibility)
     const { data: existingUser, error: checkError } = await supabaseAdmin
       .from("users")
       .select("*")
-      .eq("id", authUser.id)
-      .single();
+      .eq("auth_user_id", authUser.id)
+      .maybeSingle();
 
     if (checkError && checkError.code !== "PGRST116") {
-      // PGRST116 is "not found" which is OK, but other errors are not
-      console.error("Error checking existing user:", {
+      console.error("Error checking existing user by auth_user_id:", {
         error: checkError.message,
         code: checkError.code,
       });
@@ -186,11 +219,26 @@ export async function POST(request: NextRequest) {
 
     let user;
     if (existingUser) {
-      // Update existing user
+      // If existing user has a different role, we can't update it (would violate unique constraint)
+      if (existingUser.role !== "THERAPIST") {
+        return NextResponse.json(
+          { 
+            error: "Account exists with different role", 
+            message: `This email is already registered as a ${existingUser.role.toLowerCase()}. Please login to access your account.`,
+            existingRole: existingUser.role
+          },
+          { status: 400 }
+        );
+      }
+      
+      // Update existing THERAPIST user
       const { data: updatedUser, error: updateError } = await supabaseAdmin
         .from("users")
-        .update(userData)
-        .eq("id", authUser.id)
+        .update({
+          ...userData,
+          auth_user_id: authUser.id, // Ensure auth_user_id is set
+        })
+        .eq("id", existingUser.id)
         .select()
         .single();
 
@@ -202,11 +250,13 @@ export async function POST(request: NextRequest) {
       }
       user = updatedUser;
     } else {
-      // Create new user
+      // Create new user with generated UUID (not auth user ID)
+      const newUserId = randomUUID();
       const { data: newUser, error: createError } = await supabaseAdmin
         .from("users")
         .insert({
-          id: authUser.id,
+          id: newUserId, // Use generated UUID
+          auth_user_id: authUser.id, // Link to Supabase Auth account
           ...userData,
           created_at: new Date().toISOString(),
         })
@@ -214,12 +264,33 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (createError) {
-        return NextResponse.json(
-          { error: "Failed to create user", details: createError.message },
-          { status: 500 }
-        );
+        // If unique constraint violation, account might have been created by another request
+        if (createError.code === "23505") {
+          // Try to fetch the account that was created
+          const { data: createdAccount } = await supabaseAdmin
+            .from("users")
+            .select("*")
+            .eq("email", email.toLowerCase().trim())
+            .eq("role", "THERAPIST")
+            .single();
+
+          if (createdAccount) {
+            user = createdAccount;
+          } else {
+            return NextResponse.json(
+              { error: "Failed to create user", details: "Account creation conflict. Please try again." },
+              { status: 500 }
+            );
+          }
+        } else {
+          return NextResponse.json(
+            { error: "Failed to create user", details: createError.message },
+            { status: 500 }
+          );
+        }
+      } else {
+        user = newUser;
       }
-      user = newUser;
     }
 
     // Audit log enrollment (don't fail if this fails)

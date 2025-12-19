@@ -9,18 +9,20 @@ remote_images = ["^(?:https:\\/\\/images\\.unsplash\\.com(?:\\/(?!\\.)(?:(?:(?!(
 [functions."*"]
 
 [[plugins]]
-origin = "default"
+origin = "config"
 package = "@netlify/plugin-nextjs"
 
 [plugins.inputs]
 
 [build]
 publish = "/Users/macbook/Desktop/daiyet-app/.next"
-publishOrigin = "ui"
-commandOrigin = "ui"
+publishOrigin = "config"
+commandOrigin = "config"
 command = "npm run build"
 
 [build.environment]
+NODE_VERSION = "18"
+NODE_OPTIONS = "--max-old-space-size=4096"
 
 [build.processing]
 

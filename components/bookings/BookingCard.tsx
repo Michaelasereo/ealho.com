@@ -12,7 +12,8 @@ import {
   Info, 
   ClipboardCheck, 
   Flag, 
-  XCircle 
+  XCircle,
+  FileText
 } from "lucide-react";
 import dayjs from "dayjs";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,11 @@ interface BookingCardProps {
   participants: string[];
   meetingLink?: string;
   eventTypeSlug?: string | null;
+  sessionNote?: {
+    id: string;
+    status: "PENDING" | "COMPLETED";
+  } | null;
+  onFillNotes?: (bookingId: string, noteId?: string) => void;
 }
 
 export function BookingCard({
@@ -42,6 +48,8 @@ export function BookingCard({
   participants,
   meetingLink,
   eventTypeSlug,
+  sessionNote,
+  onFillNotes,
 }: BookingCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -230,6 +238,19 @@ export function BookingCard({
                 <div className="px-3 py-1.5 text-xs font-semibold text-[#9ca3af] uppercase">
                   After event
                 </div>
+                {sessionNote && onFillNotes && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onFillNotes(id, sessionNote.id);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[#f9fafb] hover:bg-[#262626] rounded transition-colors"
+                  >
+                    <FileText className="h-4 w-4" />
+                    {sessionNote.status === "PENDING" ? "Fill Notes" : "View Notes"}
+                  </button>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

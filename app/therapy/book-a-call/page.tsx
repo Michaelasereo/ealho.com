@@ -569,7 +569,6 @@ function TherapyBookingContent() {
           <Step1WelcomeForm
             formData={formData}
             validationErrors={validationErrors}
-            therapistName={prefillTherapistId ? therapistName : undefined}
             onFormDataChange={(data) => {
               setFormData(prev => ({ ...prev, ...data }));
               // Clear validation errors when user types
@@ -589,7 +588,6 @@ function TherapyBookingContent() {
             therapyData={therapyData}
             availableEventTypes={availableEventTypes}
             validationErrors={validationErrors}
-            prefillTherapistId={prefillTherapistId || undefined}
             onTherapyDataChange={(data) => {
               setTherapyData(prev => ({ ...prev, ...data }));
               // Clear validation errors when user types

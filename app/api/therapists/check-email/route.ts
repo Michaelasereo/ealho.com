@@ -15,11 +15,12 @@ export async function POST(request: NextRequest) {
 
     const supabaseAdmin = createAdminClientServer();
 
-    // Check if email exists in users table
+    // Check if email exists with THERAPIST role
     const { data: existingUser, error: checkError } = await supabaseAdmin
       .from("users")
       .select("id, email, role")
       .eq("email", email.toLowerCase().trim())
+      .eq("role", "THERAPIST")
       .single();
 
     if (checkError && checkError.code !== "PGRST116") {
@@ -34,11 +35,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If user exists with role="USER", they can still enroll as therapist
-    // Only block if they're already THERAPIST or DIETITIAN
-    const canEnroll = !existingUser || existingUser.role === "USER";
-    const isAlreadyTherapist = existingUser?.role === "THERAPIST";
-    const isAlreadyDietitian = existingUser?.role === "DIETITIAN";
+    // If account with (email, THERAPIST) exists, they can't enroll again
+    // But they can enroll if they have a different role (e.g., USER or DIETITIAN)
+    const isAlreadyTherapist = !!existingUser; // If we found a user, they're already a therapist
+    const canEnroll = !isAlreadyTherapist; // Can enroll if not already a therapist
+    
+    // Check if they have a DIETITIAN account (separate check)
+    const { data: dietitianAccount } = await supabaseAdmin
+      .from("users")
+      .select("id, email, role")
+      .eq("email", email.toLowerCase().trim())
+      .eq("role", "DIETITIAN")
+      .maybeSingle();
+    
+    const isAlreadyDietitian = !!dietitianAccount;
 
     return NextResponse.json(
       {
