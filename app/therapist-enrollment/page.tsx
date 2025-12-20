@@ -94,8 +94,9 @@ export default function TherapistEnrollmentPage() {
           console.log("Returning from OAuth, cleaning up URL...");
           // Clean up URL
           window.history.replaceState({}, "", window.location.pathname);
-          // Small delay to ensure session cookies are set after OAuth redirect
-          await new Promise(resolve => setTimeout(resolve, 300));
+          // Delay to ensure session cookies are set after OAuth redirect
+          // Increased delay to allow Supabase to process the session
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
         console.log("Getting session...");
