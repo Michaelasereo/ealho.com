@@ -42,6 +42,7 @@ export default function DashboardClient({
   upcomingBookings,
   userName,
 }: DashboardClientProps) {
+  const router = useRouter();
   const displayName = userName || "Therapist";
   
   // Use SSE for real-time session requests (same as session requests page)
