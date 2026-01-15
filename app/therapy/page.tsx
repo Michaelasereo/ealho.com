@@ -57,7 +57,6 @@ const packages = [
       "Consistent work with same therapist",
       "Structured progress tracking",
       "All Access tier features",
-      "FREE: Digital therapy journal template",
     ],
     buttonText: "GET ACCESS PACKAGE (SAVE ₦5,000)",
     buttonLink: "/therapy/book",
@@ -76,7 +75,7 @@ const packages = [
       "Weekly Q&A access throughout",
       "Monthly progress assessments",
       "All Deep Intensive premium features",
-      "FREE: Premium therapy journal + 1 free therapist switch",
+      "1 free therapist switch",
     ],
     buttonText: "GET DEEP INTENSIVE PACKAGE (SAVE ₦25,000)",
     buttonLink: "/therapy/book",
@@ -90,7 +89,6 @@ const comparisonFeatures = [
   { feature: "Between-Session Support", access: "None", deep: "15-minute weekly Q&A access" },
   { feature: "Progress Tracking", access: "Basic goals", deep: "Monthly assessments + insights report" },
   { feature: "Rescheduling Notice", access: "24 hours", deep: "6 hours" },
-  { feature: "Session Format", access: "Virtual only", deep: "Virtual + In-person options (Lagos VI)" },
   { feature: "Best For", access: "Starting therapy, specific issues, budget-conscious healing", deep: "Deep transformation, complex concerns, accelerated growth" },
 ];
 
@@ -105,7 +103,7 @@ export default function TherapyPage() {
           <div className="max-w-4xl mx-auto text-center space-y-6">
             <h1 className="text-4xl md:text-5xl font-bold text-white">
               💫 Your Healing Journey, Your Choice
-            </h1>
+              </h1>
             <p className="text-lg text-white/80 max-w-2xl mx-auto">
               At Ealho, we believe therapy should be accessible yet transformative. Choose the path that fits your needs, budget, and goals.
             </p>
@@ -171,17 +169,17 @@ export default function TherapyPage() {
                         </li>
                       ))}
                     </ul>
-                    <Link
+                <Link 
                       href={tier.buttonLink}
                       className={`block w-full ${tier.buttonColor} text-center py-3 px-6 rounded-lg font-semibold transition-colors mt-6`}
                     >
                       {tier.buttonText}
-                    </Link>
-                  </div>
+                </Link>
+              </div>
                 </div>
               ))}
             </div>
-          </div>
+                  </div>
         </section>
 
         {/* Packages */}
@@ -197,7 +195,7 @@ export default function TherapyPage() {
                   {pkg.popular && (
                     <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-[#EAF2CF] text-[#3a3628] px-4 py-1 rounded-full text-sm font-semibold">
                       Best Value
-                    </div>
+                  </div>
                   )}
                   <div className="space-y-4">
                     <div>
@@ -207,11 +205,11 @@ export default function TherapyPage() {
                         {pkg.originalPrice !== pkg.discountedPrice && (
                           <span className="text-lg text-white/50 line-through">{pkg.originalPrice}</span>
                         )}
-                      </div>
+                </div>
                       <div className="flex items-center gap-2 text-sm">
                         <span className="bg-[#EAF2CF] text-[#3a3628] px-2 py-1 rounded">Save {pkg.savings}</span>
                         <span className="text-white/70">That's {pkg.perSession} per session!</span>
-                      </div>
+                </div>
                     </div>
                     <p className="text-white/80 leading-relaxed font-medium">{pkg.description}</p>
                     <p className="text-sm text-white/70">Validity: {pkg.validity}</p>
@@ -230,9 +228,9 @@ export default function TherapyPage() {
                       {pkg.buttonText}
                     </Link>
                   </div>
-                </div>
-              ))}
-            </div>
+                      </div>
+                    ))}
+                  </div>
           </div>
         </section>
 
@@ -267,8 +265,8 @@ export default function TherapyPage() {
                   </tr>
                   <tr className="bg-white/2">
                     <td className="border border-white/20 p-4 font-medium text-white">Extended Features</td>
-                    <td className="border border-white/20 p-4 text-center text-white/80">Digital journal</td>
-                    <td className="border border-white/20 p-4 text-center text-white/80 bg-[#EAF2CF]/10">Premium journal + assessments</td>
+                    <td className="border border-white/20 p-4 text-center text-white/80">Standard features</td>
+                    <td className="border border-white/20 p-4 text-center text-white/80 bg-[#EAF2CF]/10">Premium features + assessments</td>
                   </tr>
                   <tr className="bg-white/5">
                     <td className="border border-white/20 p-4 font-medium text-white">Validity Period</td>
@@ -301,19 +299,8 @@ export default function TherapyPage() {
                 <p className="text-white/80 mb-3">→ Choose Deep Intensive Package</p>
                 <p className="text-white/70 text-sm">Invest in deep work with premium features. Ideal for complex concerns and rapid personal growth.</p>
               </div>
-              <div className="border-l-4 border-[#EAF2CF] pl-6 py-4 bg-[#EAF2CF]/20 rounded-r-lg">
-                <h3 className="font-semibold text-white mb-2">"I'm not sure which is right for me"</h3>
-                <p className="text-white/80 mb-3">→ Book a Free 15-Minute Consultation</p>
-                <p className="text-white/70 text-sm">Talk to our team about your goals and get personalized recommendations.</p>
-                <Link
-                  href="/contact"
-                  className="inline-block mt-3 text-[#EAF2CF] hover:text-[#d9e5b8] font-medium"
-                >
-                  BOOK FREE CONSULTATION →
-                </Link>
-              </div>
-            </div>
-          </div>
+                          </div>
+                  </div>
         </section>
 
         {/* What's Included */}
@@ -372,7 +359,7 @@ export default function TherapyPage() {
             <p className="text-xs text-white/60">
               Note: Prices are in Nigerian Naira (₦). Launch pricing valid for first 50 clients. Terms and conditions apply.
             </p>
-          </div>
+        </div>
         </section>
       </main>
 
