@@ -65,18 +65,3 @@ export const CSRFProtection = {
     };
   },
 };
-
-/**
- * CSRF Protection object with methods for compatibility
- */
-export const CSRFProtection = {
-  generateToken: () => Promise.resolve(generateCSRFToken()),
-  validateRequest: async (request: Request, token: string | null) => {
-    const sessionToken = getCSRFTokenFromRequest(request);
-    const valid = validateCSRFToken(token || "", sessionToken);
-    return {
-      valid,
-      error: valid ? null : "Invalid CSRF token",
-    };
-  },
-};
