@@ -102,8 +102,8 @@ export async function GET(request: NextRequest) {
         if (dbUser) {
           userLookupStatus = {
             found: true,
-            source: source || "unknown",
-            role: dbUser.role,
+            source: source ?? "unknown",
+            role: dbUser.role ?? null,
             hasAuthUserId: !!dbUser.auth_user_id,
             error: null,
           };
