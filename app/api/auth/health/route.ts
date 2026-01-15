@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       dbStatus = {
         connected: !countError,
         userCount: count || 0,
-        error: countError?.message || null,
+        error: countError?.message ?? null,
       };
     } catch (dbError: any) {
       dbStatus.error = dbError.message;
