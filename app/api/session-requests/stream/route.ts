@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 
 // Helper function to fetch session requests
+import { createAdminClientServer } from "@/lib/supabase/server";
+
 // providerId can be either a dietitian or therapist ID (both use dietitian_id field in DB)
 async function fetchSessionRequests(providerId: string) {
   const supabaseAdmin = createAdminClientServer();
