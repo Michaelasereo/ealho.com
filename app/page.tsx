@@ -135,12 +135,12 @@ export default function HomePage() {
             <Link href="/faqs" className="text-sm text-white/80 hover:text-white transition-colors">
               FAQs
             </Link>
-            <Link href="/api" className="relative text-sm text-white/80 hover:text-white transition-colors">
+            <span className="relative text-sm text-white/40 cursor-not-allowed pointer-events-none">
               <span className="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-[#474433] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
                 Coming Soon
               </span>
               Ealho Notes API
-            </Link>
+            </span>
           </nav>
           <div className="flex items-center gap-3 sm:gap-4">
             <Link 
@@ -202,7 +202,12 @@ export default function HomePage() {
                 <CardContent className="p-4 sm:p-6">
                 <h3 className="text-sm font-semibold text-[#374151] mb-1">Psy. Odeyeemi Makinde</h3>
                 <p className="text-xs text-[#6b7280] mb-2">Clinical Psychologist</p>
-                <h4 className="text-xl font-semibold mb-1 text-[#111827]">Therapy Consultation</h4>
+                <div className="flex items-center gap-2 mb-1">
+                  <h4 className="text-xl font-semibold text-[#111827]">Therapy Consultation</h4>
+                  <span className="inline-flex items-center gap-1.5 bg-[#EAF2CF] text-[#474433] text-xs font-semibold px-2 py-0.5 rounded-full">
+                    Ealho Access
+                  </span>
+                </div>
                 <p className="text-sm text-[#4b5563] mb-6">
                   1-on-1 therapy session to discuss your mental health needs and develop a personalized treatment plan.
                 </p>

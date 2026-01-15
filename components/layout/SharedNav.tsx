@@ -64,7 +64,7 @@ export function SharedNav() {
           >
             FAQs
           </Link>
-          <span className="relative text-sm text-white/40 cursor-not-allowed">
+          <span className="relative text-sm text-white/40 cursor-not-allowed pointer-events-none">
             <span className="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-[#474433] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
               Coming Soon
             </span>
