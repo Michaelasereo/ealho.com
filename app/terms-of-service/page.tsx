@@ -234,10 +234,10 @@ export default function TermsPage() {
                     {section.subsections.map((subsection, idx) => (
                       <div key={idx} className="pl-4 border-l-2 border-white/10">
                         <h3 className="text-lg font-semibold text-white mb-2">{subsection.title}</h3>
-                        {subsection.content && (
+                        {'content' in subsection && subsection.content && (
                           <p className="text-white/80 leading-relaxed mb-2">{subsection.content}</p>
                         )}
-                        {subsection.bullets && (
+                        {'bullets' in subsection && subsection.bullets && (
                           <ul className="space-y-2 text-white/80 leading-relaxed">
                             {subsection.bullets.map((item, itemIdx) => (
                               <li key={itemIdx} className="flex gap-2">
