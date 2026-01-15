@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
         if (dbUser) {
           userLookupStatus = {
             found: true,
-            source: source ?? "unknown",
+            source: (source ?? "unknown") as string | null,
             role: dbUser.role ?? null,
             hasAuthUserId: !!dbUser.auth_user_id,
             error: null,
