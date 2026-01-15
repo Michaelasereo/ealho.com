@@ -84,7 +84,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Test user lookup if we have a user ID
-    let userLookupStatus = {
+    let userLookupStatus: {
+      found: boolean;
+      source: string | null;
+      role: string | null;
+      hasAuthUserId: boolean;
+      error: string | null;
+    } = {
       found: false,
       source: null,
       role: null,
@@ -102,7 +108,7 @@ export async function GET(request: NextRequest) {
         if (dbUser) {
           userLookupStatus = {
             found: true,
-            source: (source ?? "unknown") as string | null,
+            source: source ?? "unknown",
             role: dbUser.role ?? null,
             hasAuthUserId: !!dbUser.auth_user_id,
             error: null,
