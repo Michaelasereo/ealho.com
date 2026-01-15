@@ -56,6 +56,31 @@ export default function DashboardClient({
   const loadingRequests = requests.length === 0 && isConnected === false && !requestsError;
   const [isUploading, setIsUploading] = useState(false);
 
+  // Handle booking cancellation
+  const handleCancelBooking = async (bookingId: string) => {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ status: "CANCELLED" }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.details || "Failed to cancel booking");
+      }
+
+      // Refresh the page to update bookings
+      router.refresh();
+    } catch (error: any) {
+      console.error("Error canceling booking:", error);
+      throw error; // Re-throw to let the modal handle the error
+    }
+  };
+
   const handleUploadPdf = async (requestId: string) => {
     const input = document.createElement("input");
     input.type = "file";
