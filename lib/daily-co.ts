@@ -9,6 +9,7 @@
 
 const DAILY_API_KEY = process.env.DAILY_API_KEY;
 const DAILY_API_URL = process.env.DAILY_API_URL || "https://api.daily.co/v1";
+const DAILY_DOMAIN = process.env.NEXT_PUBLIC_DAILY_DOMAIN || process.env.DAILY_DOMAIN;
 
 interface CreateRoomOptions {
   name?: string; // Room name (optional, auto-generated if not provided)

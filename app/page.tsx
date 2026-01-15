@@ -56,11 +56,11 @@ export default function HomePage() {
   }, []);
 
   // Handle button clicks
-  const handleMeetDietitians = () => {
-    console.log('🔘 [HomePage] Meet Dietitians button clicked');
+  const handleMeetTherapists = () => {
+    console.log('🔘 [HomePage] Meet Therapists button clicked');
     console.log('🔘 [HomePage] Current path:', window.location.pathname);
-    // TODO: Navigate to dietitians page or scroll to section
-    // window.location.href = '/dietitians';
+    // TODO: Navigate to therapists page or scroll to section
+    // window.location.href = '/therapists';
   };
 
   const handlePrevMonth = () => {
@@ -85,17 +85,17 @@ export default function HomePage() {
   });
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#474433] text-white">
       {/* Nav */}
-      <header className="border-b border-white/10 bg-black/30 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-6 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3">
+      <header className="border-b border-white bg-[#3a3628] backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-6 sm:px-8 lg:px-12 py-4 sm:py-5 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Image
-              src="/daiyet%20logo.svg"
-              alt="Daiyet"
-              width={120}
-              height={32}
-              className="h-7 sm:h-8 w-auto object-contain"
+              src="/ealho logo.png"
+              alt="Ealho"
+              width={180}
+              height={48}
+              className="h-10 sm:h-12 w-auto object-contain"
               priority
               onError={(e) => {
                 console.error('🖼️ [HomePage] Logo image failed to load');
@@ -111,7 +111,7 @@ export default function HomePage() {
                 if (parent && !parent.querySelector('.logo-fallback')) {
                   console.log('🖼️ [HomePage] Creating text fallback for logo');
                   const fallback = document.createElement('span');
-                  fallback.textContent = 'Daiyet';
+                  fallback.textContent = 'Ealho';
                   fallback.className = 'logo-fallback text-xl font-bold text-white';
                   parent.appendChild(fallback);
                 }
@@ -120,54 +120,43 @@ export default function HomePage() {
                 console.log('🖼️ [HomePage] Logo image loaded successfully');
               }}
             />
-            <span className="hidden sm:inline text-xs sm:text-sm text-white/60">Scheduling reinvented</span>
+            <span className="hidden sm:inline text-xs sm:text-sm text-white/60">Therapy for all</span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Link
-              href="/login"
-              className="flex items-center text-white/80 hover:text-white transition-colors text-xs sm:text-sm px-2 sm:px-0"
-              onClick={(e) => {
-                console.log('🔗 [HomePage] Login link clicked');
-                // Fallback navigation if Next.js routing fails
-                if (e.defaultPrevented) {
-                  console.warn('🔗 [HomePage] Login click was prevented');
-                  return;
-                }
-                // Let Next.js handle it normally, but have fallback
-                setTimeout(() => {
-                  if (window.location.pathname !== '/login') {
-                    console.log('🔗 [HomePage] Fallback navigation to /login');
-                    window.location.href = '/login';
-                  } else {
-                    console.log('🔗 [HomePage] Already on /login, navigation successful');
-                  }
-                }, 100);
-              }}
-            >
-              Login
+          <nav className="hidden lg:flex items-center gap-6 xl:gap-8">
+            <Link href="/about" className="text-sm text-white/80 hover:text-white transition-colors">
+              About Us
             </Link>
+            <Link href="/therapy" className="text-sm text-white/80 hover:text-white transition-colors">
+              Therapy
+            </Link>
+            <Link href="/blog" className="text-sm text-white/80 hover:text-white transition-colors">
+              Blog
+            </Link>
+            <Link href="/faqs" className="text-sm text-white/80 hover:text-white transition-colors">
+              FAQs
+            </Link>
+            <Link href="/api" className="relative text-sm text-white/80 hover:text-white transition-colors">
+              <span className="absolute -top-5 left-1/2 transform -translate-x-1/2 bg-[#474433] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">
+                Coming Soon
+              </span>
+              Ealho Notes API
+            </Link>
+          </nav>
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link 
-              href="/signup"
+              href="/contact"
+              className="hidden sm:inline text-sm text-white/80 hover:text-white transition-colors"
+            >
+              Contact Us
+            </Link>
+            <a 
+              href="https://docs.google.com/forms/d/e/1FAIpQLSf_aIC5Z0Ir27XaqX9j2sxvr5trYpFwGPMUhZbhln3IUNNe6Q/viewform"
+              target="_blank"
+              rel="noopener noreferrer"
               className="bg-[#FFF4E0] text-black hover:bg-[#ffe9c2] text-xs sm:text-sm h-8 sm:h-10 px-3 sm:px-4 py-1.5 sm:py-2 rounded-md inline-flex items-center justify-center font-medium transition-colors"
-              onClick={(e) => {
-                console.log('🔗 [HomePage] Signup link clicked (header - Get Started)');
-                // Fallback navigation if Next.js routing fails
-                if (e.defaultPrevented) {
-                  console.warn('🔗 [HomePage] Signup click was prevented');
-                  return;
-                }
-                setTimeout(() => {
-                  if (window.location.pathname !== '/signup') {
-                    console.log('🔗 [HomePage] Fallback navigation to /signup');
-                    window.location.href = '/signup';
-                  } else {
-                    console.log('🔗 [HomePage] Already on /signup, navigation successful');
-                  }
-                }, 100);
-              }}
             >
               Get Started
-            </Link>
+            </a>
           </div>
         </div>
       </header>
@@ -182,57 +171,20 @@ export default function HomePage() {
                 Now serving patients in Nigeria
               </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold leading-tight">
-                Book Licensed Dietitians today!
+                Book Licensed Therapists today!
               </h1>
               <p className="text-base sm:text-lg text-white/70 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                Schedule virtual appointments with licensed dietitians specializing in your health needs and receive personalized meal plans designed to help you achieve lasting results.
+                Schedule virtual appointments with licensed therapists specializing in mental health and receive personalized support designed to help you achieve lasting wellness.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
-                <Link 
-                  href="/signup"
+                <a 
+                  href="https://docs.google.com/forms/d/e/1FAIpQLSf_aIC5Z0Ir27XaqX9j2sxvr5trYpFwGPMUhZbhln3IUNNe6Q/viewform"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="bg-[#FFF4E0] text-black hover:bg-[#ffe9c2] h-10 sm:h-12 px-6 py-2 sm:py-3 rounded-md inline-flex items-center justify-center font-medium transition-colors"
-                  onClick={(e) => {
-                console.log('🔗 [HomePage] Book a Call button clicked');
-                // Fallback navigation if Next.js routing fails
-                if (e.defaultPrevented) {
-                  console.warn('🔗 [HomePage] Book a Call click was prevented');
-                  return;
-                }
-                setTimeout(() => {
-                  if (window.location.pathname !== '/signup') {
-                    console.log('🔗 [HomePage] Fallback navigation to /signup');
-                    window.location.href = '/signup';
-                  } else {
-                    console.log('🔗 [HomePage] Already on /signup, navigation successful');
-                  }
-                }, 100);
-              }}
                 >
-                  Book a Call <ArrowRight className="h-4 w-4 ml-2" />
-                </Link>
-                <Link 
-                  href="/login"
-                  className="border border-white/20 text-white hover:bg-white/5 h-10 sm:h-12 px-6 py-2 sm:py-3 rounded-md inline-flex items-center justify-center font-medium transition-colors"
-                  onClick={(e) => {
-                    console.log('🔗 [HomePage] Get Tailored Meal Plans button clicked');
-                    // Fallback navigation if Next.js routing fails
-                    if (e.defaultPrevented) {
-                      console.warn('🔗 [HomePage] Get Tailored Meal Plans click was prevented');
-                      return;
-                    }
-                    setTimeout(() => {
-                      if (window.location.pathname !== '/login') {
-                        console.log('🔗 [HomePage] Fallback navigation to /login');
-                        window.location.href = '/login';
-                      } else {
-                        console.log('🔗 [HomePage] Already on /login, navigation successful');
-                      }
-                    }, 100);
-                  }}
-                  aria-label="Get tailored meal plans"
-                >
-                  Get Tailored Meal Plans
-                </Link>
+                  Book a Session <ArrowRight className="h-4 w-4 ml-2" />
+                </a>
               </div>
               <div className="hidden sm:flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-2 sm:gap-4 text-xs sm:text-sm text-white/60">
                 <div className="flex items-center gap-1">
@@ -248,10 +200,11 @@ export default function HomePage() {
             <div className="hidden sm:flex relative mt-8 sm:mt-16 lg:mt-14 mb-8 sm:mb-16 justify-center self-center w-full">
               <Card className="relative z-10 bg-[#FFF4E0] border border-[#f1e2c0] shadow-xl w-full max-w-[520px]">
                 <CardContent className="p-4 sm:p-6">
-                <h3 className="text-sm font-semibold text-[#374151] mb-1">Dt. Odeyemi Makinde</h3>
-                <h4 className="text-xl font-semibold mb-1 text-[#111827]">Nutrition Consultation</h4>
+                <h3 className="text-sm font-semibold text-[#374151] mb-1">Psy. Odeyeemi Makinde</h3>
+                <p className="text-xs text-[#6b7280] mb-2">Clinical Psychologist</p>
+                <h4 className="text-xl font-semibold mb-1 text-[#111827]">Therapy Consultation</h4>
                 <p className="text-sm text-[#4b5563] mb-6">
-                  1-on-1 consult to review goals, history, and build a tailored plan.
+                  1-on-1 therapy session to discuss your mental health needs and develop a personalized treatment plan.
                 </p>
 
                 <div className="mb-6">
@@ -266,7 +219,7 @@ export default function HomePage() {
 
                 <div className="flex items-center gap-2 mb-4 text-sm text-[#111827]">
                   <Video className="h-4 w-4 text-[#6b7280]" />
-                  <span>Google Meet</span>
+                  <span>Video Call</span>
                 </div>
 
                 <div className="flex items-center gap-2 mb-6 text-sm text-[#111827]">
@@ -357,9 +310,9 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t border-white/10 bg-black/40">
+      <footer className="border-t border-white/10 bg-[#3a3628]">
         <div className="container mx-auto px-6 sm:px-6 py-4 sm:py-6 flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 text-xs sm:text-sm text-white/70">
-          <span>© {new Date().getFullYear()} Daiyet. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Ealho. All rights reserved.</span>
           <div className="flex gap-4">
             <Link 
               href="/terms-of-service" 
