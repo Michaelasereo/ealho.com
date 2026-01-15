@@ -3,7 +3,6 @@ import { Calendar, ArrowLeft, User, Share2 } from "lucide-react";
 import { SharedNav } from "@/components/layout/SharedNav";
 import { SharedFooter } from "@/components/layout/SharedFooter";
 import { notFound } from "next/navigation";
-import "./article.css";
 
 // This would typically come from a CMS or database
 const blogPosts: Record<string, {
@@ -227,7 +226,7 @@ export default function BlogArticlePage({ params }: { params: Promise<{ slug: st
 
             {/* Article Content */}
             <div 
-              className="article-content max-w-none"
+              className="max-w-none text-white/80 text-lg leading-relaxed [&_p]:mb-6 [&_h2]:text-white [&_h2]:text-3xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-white [&_h3]:text-2xl [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_a]:text-[#EAF2CF] [&_a]:underline [&_a:hover]:text-[#d9e5b8] [&_strong]:text-white [&_strong]:font-semibold [&_ul]:mb-6 [&_ul]:pl-6 [&_ol]:mb-6 [&_ol]:pl-6 [&_li]:mb-2"
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
 
