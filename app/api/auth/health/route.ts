@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
         authStatus = {
           hasSession: true,
           userId: sessionData.session.user.id,
-          email: sessionData.session.user.email,
+          email: sessionData.session.user.email ?? null,
           error: null,
         };
       } else {
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
           authStatus = {
             hasSession: false,
             userId: userData.user.id,
-            email: userData.user.email,
+            email: userData.user.email ?? null,
             error: "Session expired but user found",
           };
         } else {
