@@ -235,8 +235,8 @@ export default function ProfilePage() {
       // Update user record to set image to null
       const result = await therapistService.updateProfile(profile.id, { image: undefined });
 
-      if (result.error) {
-        throw new Error(result.error);
+      if (!result.success) {
+        throw new Error("Failed to update profile");
       }
 
       // Update local profile state
