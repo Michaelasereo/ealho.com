@@ -168,7 +168,7 @@ export async function generateStaticParams() {
   }));
 }
 
-export default function BlogArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function BlogArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const post = blogPosts[slug];
 
