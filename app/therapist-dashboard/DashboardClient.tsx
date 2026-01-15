@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
@@ -272,7 +273,14 @@ export default function DashboardClient({
 
             {/* Bookings List */}
             {upcomingBookings.length > 0 ? (
-              <BookingsList bookings={upcomingBookings} type="upcoming" />
+              <BookingsList 
+                bookings={upcomingBookings.map(b => ({
+                  ...b,
+                  status: "CONFIRMED",
+                }))} 
+                type="upcoming" 
+                onCancel={handleCancelBooking}
+              />
             ) : (
               <div className="text-[#9ca3af] text-sm">No upcoming bookings</div>
             )}

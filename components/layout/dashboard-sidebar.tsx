@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { 
@@ -68,8 +68,10 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [navigating, setNavigating] = useState<string | null>(null);
   
   // Get profile from AuthProvider context - single source of truth
   const { profile: userProfile, signOut } = useAuth();
@@ -90,19 +92,25 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
     }
   }, [pathname, isOpen, onClose]);
 
+  // Clear navigating state when pathname changes
+  useEffect(() => {
+    setNavigating(null);
+  }, [pathname]);
+
   // Auto-expand items when on their sub-pages, and close others
   useEffect(() => {
-    navigation.forEach((item) => {
+    const navItems = pathname?.startsWith("/therapist-dashboard") ? therapistNavigation : navigation;
+    navItems.forEach((item) => {
       if (item.subItems) {
         const isOnSubPage = item.subItems.some(subItem => pathname === subItem.href);
         const isOnMainPage = pathname === item.href || 
-          (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+          (item.href !== "/dashboard" && item.href !== "/therapist-dashboard" && pathname?.startsWith(item.href));
         
         if (isOnSubPage || isOnMainPage) {
           setExpandedItems((prev) => {
             if (!prev.includes(item.name)) {
               // Close other items with sub-items when opening this one
-              const otherItemsWithSubs = navigation
+              const otherItemsWithSubs = navItems
                 .filter(n => n.subItems && n.name !== item.name)
                 .map(n => n.name);
               return [...prev.filter(name => !otherItemsWithSubs.includes(name)), item.name];
@@ -118,11 +126,12 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
     setExpandedItems((prev) => {
       if (prev.includes(itemName)) {
         // Check if we're currently on a sub-page of this item
-        const item = navigation.find(n => n.name === itemName);
+        const navItems = pathname?.startsWith("/therapist-dashboard") ? therapistNavigation : navigation;
+        const item = navItems.find(n => n.name === itemName);
         if (item?.subItems) {
           const isOnSubPage = item.subItems.some(subItem => pathname === subItem.href);
           const isOnMainPage = pathname === item.href || 
-            (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+            (item.href !== "/dashboard" && item.href !== "/therapist-dashboard" && pathname?.startsWith(item.href));
           
           // Don't allow closing if we're on a sub-page or main page
           if (isOnSubPage || isOnMainPage) {
@@ -132,12 +141,42 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
         return prev.filter((name) => name !== itemName);
       } else {
         // When opening a new item, close others that have sub-items
-        const otherItemsWithSubs = navigation
+        const navItems = pathname?.startsWith("/therapist-dashboard") ? therapistNavigation : navigation;
+        const otherItemsWithSubs = navItems
           .filter(n => n.subItems && n.name !== itemName)
           .map(n => n.name);
         return [...prev.filter(name => !otherItemsWithSubs.includes(name)), itemName];
       }
     });
+  };
+
+  // Handle navigation with proper client-side routing
+  const handleNavigation = async (href: string, e?: React.MouseEvent) => {
+    // Don't navigate if already on this page
+    if (pathname === href) {
+      if (e) {
+        e.preventDefault();
+      }
+      return;
+    }
+
+    // Set navigating state to show loading indicator
+    setNavigating(href);
+    
+    try {
+      // Use router.push for client-side navigation without full page reload
+      // This prevents the full page reload that Link might cause with server components
+      await router.push(href);
+    } catch (error) {
+      console.error("Navigation error:", error);
+      // Clear navigating state on error
+      setNavigating(null);
+      // Optionally show error to user
+      // You could add a toast notification here if needed
+    }
+    
+    // Clear navigating state after navigation completes
+    // The pathname change will also clear it in the useEffect
   };
 
   const getInitials = (name: string) => {
@@ -166,8 +205,8 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
               <Image
-                src="/daiyet logo.svg"
-                alt="Daiyet"
+                src="/ealho-logo.svg"
+                alt="Eahlo"
                 width={120}
                 height={32}
                 className="h-8 w-auto"
@@ -221,37 +260,58 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
                     <div className="ml-8 mt-1 space-y-1">
                       {item.subItems.map((subItem) => {
                         const isSubActive = pathname === subItem.href;
+                        const isNavigating = navigating === subItem.href;
                         return (
-                          <Link
+                          <button
                             key={subItem.name}
-                            href={subItem.href}
+                            onClick={(e) => handleNavigation(subItem.href, e)}
+                            disabled={isNavigating || isSubActive}
                             className={cn(
-                              "block px-3 py-2 rounded-md text-[15px] transition-colors",
+                              "block w-full text-left px-3 py-2 rounded-md text-[15px] transition-colors",
                               isSubActive
                                 ? "bg-[#404040] text-[#f9fafb]"
-                                : "text-[#D4D4D4] hover:bg-[#374151] hover:text-[#f9fafb]"
+                                : "text-[#D4D4D4] hover:bg-[#374151] hover:text-[#f9fafb]",
+                              (isNavigating || isSubActive) && "opacity-75 cursor-not-allowed"
                             )}
                           >
-                            {subItem.name}
-                          </Link>
+                            {isNavigating ? (
+                              <span className="flex items-center gap-2">
+                                <span className="animate-spin">⟳</span>
+                                Loading...
+                              </span>
+                            ) : (
+                              subItem.name
+                            )}
+                          </button>
                         );
                       })}
                     </div>
                   )}
                 </>
               ) : (
-                <Link
-                  href={item.href}
+                <button
+                  onClick={(e) => handleNavigation(item.href, e)}
+                  disabled={navigating === item.href || isActive}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-3 rounded-md text-[15px] font-medium transition-colors min-h-[48px]",
+                    "w-full flex items-center gap-3 px-3 py-3 rounded-md text-[15px] font-medium transition-colors min-h-[48px]",
                     isActive
                       ? "bg-[#404040] text-[#f9fafb]"
-                      : "text-[#D4D4D4] hover:bg-[#374151] hover:text-[#f9fafb]"
+                      : "text-[#D4D4D4] hover:bg-[#374151] hover:text-[#f9fafb]",
+                    (navigating === item.href || isActive) && "opacity-75 cursor-not-allowed"
                   )}
                 >
                   <item.icon className="h-5 w-5" />
-                  <span>{item.name}</span>
-                </Link>
+                  <span>
+                    {navigating === item.href ? (
+                      <span className="flex items-center gap-2">
+                        <span className="animate-spin">⟳</span>
+                        Loading...
+                      </span>
+                    ) : (
+                      item.name
+                    )}
+                  </span>
+                </button>
               )}
             </div>
           );
@@ -294,7 +354,7 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
           </div>
         </div>
         <Link
-          href="/dashboard/settings/profile"
+          href={pathname?.startsWith("/therapist-dashboard") ? "/therapist-dashboard/settings/profile" : "/dashboard/settings/profile"}
           className="flex items-center gap-2 text-sm text-[#D4D4D4] hover:text-[#f9fafb] hover:bg-[#374151] transition-colors rounded px-2 py-1"
         >
           <Settings className="h-4 w-4" />
@@ -308,7 +368,7 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
           Refer and earn
         </div>
         <Link
-          href="/dashboard/settings/profile"
+          href={pathname?.startsWith("/therapist-dashboard") ? "/therapist-dashboard/settings/profile" : "/dashboard/settings/profile"}
           className="flex items-center gap-2 text-sm text-[#D4D4D4] hover:text-[#f9fafb] hover:bg-[#374151] transition-colors rounded px-2 py-1"
         >
           <Settings className="h-4 w-4" />

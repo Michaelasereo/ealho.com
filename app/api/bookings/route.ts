@@ -291,8 +291,40 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Validate: Prevent bookings in the past
+    const now = new Date();
+    if (startTimeDate < now) {
+      return NextResponse.json(
+        { error: "Cannot create booking in the past", details: "Booking start time must be in the future" },
+        { status: 400 }
+      );
+    }
+    
     const durationMinutes = eventType.length || 30;
     const endTimeDate = endTime ? new Date(endTime) : new Date(startTimeDate.getTime() + durationMinutes * 60000);
+
+    // Validate: Check for booking conflicts (overlapping bookings)
+    // Fetch bookings that might overlap - bookings that start before our end time and end after our start time
+    const { data: potentialConflicts, error: conflictCheckError } = await supabaseAdmin
+      .from("bookings")
+      .select("id, start_time, end_time, status")
+      .eq("dietitian_id", finalDietitianId)
+      .in("status", ["PENDING", "CONFIRMED"])
+      .lt("start_time", endTimeDate.toISOString())
+      .gt("end_time", startTimeDate.toISOString());
+
+    if (conflictCheckError) {
+      console.error("[Bookings API] Error checking for booking conflicts:", conflictCheckError);
+      // Don't fail booking creation if conflict check fails, but log the error
+    } else if (potentialConflicts && potentialConflicts.length > 0) {
+      return NextResponse.json(
+        { 
+          error: "Time slot not available", 
+          details: "The selected time slot conflicts with an existing booking. Please choose a different time." 
+        },
+        { status: 409 }
+      );
+    }
 
     console.log("[Bookings API] Creating booking:", {
       title: eventType.title,

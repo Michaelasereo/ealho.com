@@ -12,6 +12,7 @@ interface Booking {
   participants: string[];
   meetingLink?: string;
   eventTypeSlug?: string | null;
+  status?: string;
   sessionNote?: {
     id: string;
     status: "PENDING" | "COMPLETED";
@@ -22,6 +23,7 @@ interface BookingsListProps {
   bookings: Booking[];
   type?: "upcoming" | "unconfirmed" | "recurring" | "past" | "canceled";
   onFillNotes?: (bookingId: string, noteId?: string) => void;
+  onCancel?: (bookingId: string) => Promise<void>;
 }
 
 const emptyStateMessages = {
@@ -47,7 +49,7 @@ const emptyStateMessages = {
   },
 };
 
-export function BookingsList({ bookings, type = "upcoming", onFillNotes }: BookingsListProps) {
+export function BookingsList({ bookings, type = "upcoming", onFillNotes, onCancel }: BookingsListProps) {
   if (bookings.length === 0) {
     const emptyState = emptyStateMessages[type];
     
@@ -76,7 +78,7 @@ export function BookingsList({ bookings, type = "upcoming", onFillNotes }: Booki
       </div>
 
       {bookings.map((booking) => (
-        <BookingCard key={booking.id} {...booking} onFillNotes={onFillNotes} />
+        <BookingCard key={booking.id} {...booking} onFillNotes={onFillNotes} onCancel={onCancel} />
       ))}
     </div>
   );

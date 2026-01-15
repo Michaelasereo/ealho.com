@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server/client";
 import { createAdminClientServer } from "@/lib/supabase/server";
 import { getDevUserFromPath } from "@/lib/auth-helpers";
+import { findUserByAuthId } from "@/lib/auth/user-lookup";
 import SessionRequestClient from "./SessionRequestClient";
 
 /**
@@ -41,21 +42,22 @@ export default async function SessionRequestPage() {
       redirect("/therapist-login?redirect=/therapist-dashboard/session-request");
     }
 
-    // 2. Check user role and account status
+    // 2. Check user role and account status using centralized lookup
     const supabaseAdmin = createAdminClientServer();
-    const { data: dbUser, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("id, role, account_status, name, image")
-      .eq("id", user.id)
-      .single();
+    const { user: dbUser, error: userError, source } = await findUserByAuthId(
+      user.id,
+      "THERAPIST",
+      supabaseAdmin
+    );
 
     if (userError || !dbUser) {
       console.error("Session Request: User not found in database", {
-        error: userError?.message,
+        error: userError?.message || "User not found",
         userId: user.id,
+        source,
         timestamp: new Date().toISOString(),
       });
-      redirect("/therapist-enrollment");
+      redirect("/therapist-signup");
     }
 
     if (dbUser.role !== "THERAPIST") {

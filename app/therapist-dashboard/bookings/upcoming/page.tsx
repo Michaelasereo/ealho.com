@@ -37,7 +37,7 @@ export default async function UpcomingBookingsPage() {
         userId: user.id,
         timestamp: new Date().toISOString(),
       });
-      redirect("/therapist-enrollment");
+      redirect("/therapist-signup");
     }
 
     if (dbUser.role !== "THERAPIST") {

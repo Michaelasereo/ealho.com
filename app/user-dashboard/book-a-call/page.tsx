@@ -2434,7 +2434,7 @@ function BookACallPageContent() {
               </div>
               <div className="space-y-3 mt-6 max-w-md mx-auto">
                 <Button
-                  onClick={() => window.open(bookingDetails.meetingLink, '_blank')}
+                  onClick={() => router.push(`/video-call/${bookingDetails.id}`)}
                   className="w-full bg-white hover:bg-gray-100 text-black px-6 py-2"
                 >
                   Join Meeting

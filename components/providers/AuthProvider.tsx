@@ -86,7 +86,7 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
   // This prevents any race conditions or edge cases
   useEffect(() => {
     const currentPathname = pathname || '/';
-    const publicRoutes = ['/login', '/signup', '/dietitian-login', '/admin-login', '/dietitian-enrollment', '/therapist-enrollment'];
+    const publicRoutes = ['/login', '/signup', '/dietitian-login', '/admin-login', '/dietitian-enrollment', '/therapist-enrollment', '/therapist-signup', '/therapist-login'];
     // Check exact match for root, or exact/starts with for other routes
     const isPublicRoute = currentPathname === '/' || publicRoutes.some(route => currentPathname === route || currentPathname.startsWith(route + '/'));
     
@@ -100,7 +100,7 @@ export function AuthProvider({ children, initialProfile }: AuthProviderProps) {
     // CRITICAL: Check pathname FIRST and set loading to false immediately for public routes
     // This must happen before any other logic to prevent blocking
     const currentPathname = pathname || '/';
-    const publicRoutes = ['/login', '/signup', '/dietitian-login', '/admin-login', '/dietitian-enrollment', '/therapist-enrollment'];
+    const publicRoutes = ['/login', '/signup', '/dietitian-login', '/admin-login', '/dietitian-enrollment', '/therapist-enrollment', '/therapist-signup', '/therapist-login'];
     // Check exact match for root, or exact/starts with for other routes
     const isPublicRoute = currentPathname === '/' || publicRoutes.some(route => currentPathname === route || currentPathname.startsWith(route + '/'));
     

@@ -380,8 +380,8 @@ export function UserDashboardSidebar({ isOpen = false, onClose, initialUserProfi
             <div className="flex items-center justify-between">
               <Link href="/" className="flex items-center gap-2">
                 <Image
-                  src="/daiyet logo.svg"
-                  alt="Daiyet"
+                  src="/ealho-logo.svg"
+                  alt="Eahlo"
                   width={120}
                   height={32}
                   className="h-8 w-auto"

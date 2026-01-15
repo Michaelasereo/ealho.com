@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase/middleware/client";
 import { createAdminClient } from "@/lib/supabase/server/admin";
 import { authConfig, ADMIN_EMAIL } from "@/lib/auth/config";
 import { normalizeRole, canAccessRoute, getAccountStatusRedirect } from "@/lib/utils/auth-utils";
+import { AuditLogger } from "@/lib/audit/logger";
+import { UserCache } from "@/lib/cache/user-cache";
+import { TenantRateLimiter } from "@/lib/rate-limit/tenant-limiter";
+import { SecurityHardener } from "@/lib/security/hardening";
 
 // Define public routes (no authentication required)
 const PUBLIC_ROUTES = [
@@ -44,12 +48,6 @@ const ROLE_ROUTES = {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // DEVELOPMENT MODE: Bypass all auth checks in localhost
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[DEV MODE] Bypassing auth in middleware for:', pathname);
-    return NextResponse.next();
-  }
 
   // CRITICAL: Allow RSC (React Server Component) requests to pass through
   // RSC requests are made by Next.js during client-side navigation to fetch server component data
@@ -116,7 +114,9 @@ export async function middleware(request: NextRequest) {
   
   // Skip for other public routes (only if not authenticated or not home page)
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    SecurityHardener.addSecurityHeaders(response);
+    return response;
   }
 
   // Skip for static files
@@ -132,7 +132,32 @@ export async function middleware(request: NextRequest) {
     // Check if it's a public API route
     const isPublicApiRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
     if (isPublicApiRoute) {
-      return NextResponse.next();
+      // Apply rate limiting even for public routes
+      const rateLimitResult = await TenantRateLimiter.check(
+        null, // Anonymous user
+        pathname,
+        false // Not authenticated
+      );
+
+      if (!rateLimitResult.allowed) {
+        const response = NextResponse.json(
+          { error: "Rate limit exceeded", retryAfter: rateLimitResult.retryAfter },
+          { status: 429 }
+        );
+        response.headers.set("X-RateLimit-Limit", "20");
+        response.headers.set("X-RateLimit-Remaining", "0");
+        response.headers.set("X-RateLimit-Reset", new Date(rateLimitResult.resetAt).toISOString());
+        if (rateLimitResult.retryAfter) {
+          response.headers.set("Retry-After", rateLimitResult.retryAfter.toString());
+        }
+        return response;
+      }
+
+      const response = NextResponse.next();
+      response.headers.set("X-RateLimit-Limit", "20");
+      response.headers.set("X-RateLimit-Remaining", rateLimitResult.remaining.toString());
+      response.headers.set("X-RateLimit-Reset", new Date(rateLimitResult.resetAt).toISOString());
+      return response;
     }
     
     // Allow public access to event-types and availability/timeslots when dietitianId or therapistId is provided
@@ -143,7 +168,26 @@ export async function middleware(request: NextRequest) {
       const therapistId = searchParams.get("therapistId");
       // If dietitianId or therapistId is provided, allow public access (for booking flow)
       if (dietitianId || therapistId) {
-        return NextResponse.next();
+        // Apply rate limiting
+        const rateLimitResult = await TenantRateLimiter.check(
+          null,
+          pathname,
+          false
+        );
+
+        if (!rateLimitResult.allowed) {
+          const response = NextResponse.json(
+            { error: "Rate limit exceeded", retryAfter: rateLimitResult.retryAfter },
+            { status: 429 }
+          );
+          response.headers.set("Retry-After", rateLimitResult.retryAfter?.toString() || "60");
+          return response;
+        }
+
+        const response = NextResponse.next();
+        response.headers.set("X-RateLimit-Limit", "20");
+        response.headers.set("X-RateLimit-Remaining", rateLimitResult.remaining.toString());
+        return response;
       }
       // Otherwise, continue to auth check below (for private access)
     }
@@ -182,6 +226,17 @@ export async function middleware(request: NextRequest) {
         hasUser: !!authUser,
         timestamp: new Date().toISOString(),
       });
+
+      // Audit log: Unauthorized access attempt
+      await AuditLogger.logSecurityEvent(
+        null,
+        "UNAUTHORIZED_ACCESS_ATTEMPT",
+        {
+          path: pathname,
+          error: authError?.message,
+        },
+        request
+      );
 
       // Redirect to appropriate signin based on route
       let signinPath = "/auth/signin";
@@ -227,51 +282,69 @@ export async function middleware(request: NextRequest) {
       targetRole = "USER";
     }
 
-    // Look up user by (auth_user_id, role) if we have a target role
+    // Check cache first for user role
     let dbUser = null;
     let userError = null;
+    const cachedRole = UserCache.getUserRole(session.user.id);
     
-    if (targetRole) {
-      const { data: userByAuthIdRole, error: errorByAuthIdRole } = await supabaseAdmin
-        .from("users")
-        .select("role, email_verified, account_status, id, auth_user_id")
-        .eq("auth_user_id", session.user.id)
-        .eq("role", targetRole)
-        .maybeSingle();
+    if (cachedRole) {
+      // Use cached role for immediate decision
+      dbUser = {
+        id: session.user.id,
+        role: cachedRole.role,
+        account_status: cachedRole.account_status,
+        email_verified: true, // Assume verified if cached
+        auth_user_id: session.user.id,
+      };
+    } else {
+      // Cache miss - fetch from database
+      if (targetRole) {
+        const { data: userByAuthIdRole, error: errorByAuthIdRole } = await supabaseAdmin
+          .from("users")
+          .select("role, email_verified, account_status, id, auth_user_id")
+          .eq("auth_user_id", session.user.id)
+          .eq("role", targetRole)
+          .maybeSingle();
 
-      if (!errorByAuthIdRole && userByAuthIdRole) {
-        dbUser = userByAuthIdRole;
-      } else {
-        userError = errorByAuthIdRole;
+        if (!errorByAuthIdRole && userByAuthIdRole) {
+          dbUser = userByAuthIdRole;
+          // Cache the role
+          UserCache.setUserRole(session.user.id, userByAuthIdRole.role, userByAuthIdRole.account_status || "ACTIVE");
+        } else {
+          userError = errorByAuthIdRole;
+        }
       }
-    }
 
-    // Fallback: try by id (for backward compatibility)
-    if (!dbUser) {
-      const { data: userById, error: errorById } = await supabaseAdmin
-        .from("users")
-        .select("role, email_verified, account_status, id, auth_user_id")
-        .eq("id", session.user.id)
-        .maybeSingle();
+      // Fallback: try by id (for backward compatibility)
+      if (!dbUser) {
+        const { data: userById, error: errorById } = await supabaseAdmin
+          .from("users")
+          .select("role, email_verified, account_status, id, auth_user_id")
+          .eq("id", session.user.id)
+          .maybeSingle();
 
-      if (!errorById && userById) {
-        // If we have a target role and the found user doesn't match, redirect appropriately
-        if (targetRole && userById.role !== targetRole) {
-          // User exists but with different role - redirect to their dashboard
-          const redirectPath = authConfig.redirects[normalizeRole(userById.role)] || "/";
-          return NextResponse.redirect(new URL(redirectPath, request.url));
+        if (!errorById && userById) {
+          // If we have a target role and the found user doesn't match, redirect appropriately
+          if (targetRole && userById.role !== targetRole) {
+            // User exists but with different role - redirect to their dashboard
+            const redirectPath = authConfig.redirects[normalizeRole(userById.role)] || "/";
+            return NextResponse.redirect(new URL(redirectPath, request.url));
+          }
+          dbUser = userById;
+          
+          // Cache the role
+          UserCache.setUserRole(session.user.id, userById.role, userById.account_status || "ACTIVE");
+          
+          // Update auth_user_id if not set (backward compatibility)
+          if (!dbUser.auth_user_id) {
+            await supabaseAdmin
+              .from("users")
+              .update({ auth_user_id: session.user.id })
+              .eq("id", dbUser.id);
+          }
+        } else {
+          userError = errorById;
         }
-        dbUser = userById;
-        
-        // Update auth_user_id if not set (backward compatibility)
-        if (!dbUser.auth_user_id) {
-          await supabaseAdmin
-            .from("users")
-            .update({ auth_user_id: session.user.id })
-            .eq("id", dbUser.id);
-        }
-      } else {
-        userError = errorById;
       }
     }
 
@@ -371,9 +444,60 @@ export async function middleware(request: NextRequest) {
         timestamp: new Date().toISOString(),
       });
 
+      // Audit log: Access denied
+      await AuditLogger.logSecurityEvent(
+        session.user.id,
+        "ACCESS_DENIED",
+        {
+          path: pathname,
+          user_role: userRole,
+          allowed_routes: allowedRoutes,
+        },
+        request
+      );
+
       // Redirect to appropriate dashboard based on role
       const redirectPath = authConfig.redirects[userRole] || "/";
       return NextResponse.redirect(new URL(redirectPath, request.url));
+    }
+
+    // Apply rate limiting for authenticated API requests
+    if (pathname.startsWith("/api/")) {
+      const rateLimitResult = await TenantRateLimiter.check(
+        session.user.id,
+        pathname,
+        true // Authenticated
+      );
+
+      if (!rateLimitResult.allowed) {
+        // Audit log: Rate limit exceeded
+        await AuditLogger.logSecurityEvent(
+          session.user.id,
+          "RATE_LIMIT_EXCEEDED",
+          {
+            path: pathname,
+            endpoint: pathname,
+          },
+          request
+        );
+
+        const response = NextResponse.json(
+          { error: "Rate limit exceeded", retryAfter: rateLimitResult.retryAfter },
+          { status: 429 }
+        );
+        response.headers.set("X-RateLimit-Limit", "100");
+        response.headers.set("X-RateLimit-Remaining", "0");
+        response.headers.set("X-RateLimit-Reset", new Date(rateLimitResult.resetAt).toISOString());
+        if (rateLimitResult.retryAfter) {
+          response.headers.set("Retry-After", rateLimitResult.retryAfter.toString());
+        }
+        return response;
+      }
+
+      // Add rate limit headers
+      responseForAuth.headers.set("X-RateLimit-Limit", "100");
+      responseForAuth.headers.set("X-RateLimit-Remaining", rateLimitResult.remaining.toString());
+      responseForAuth.headers.set("X-RateLimit-Reset", new Date(rateLimitResult.resetAt).toISOString());
     }
 
     // Add security headers (response already created by createClient)
@@ -384,6 +508,9 @@ export async function middleware(request: NextRequest) {
     if (!pathname.startsWith("/api/")) {
       responseForAuth.headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate");
     }
+
+    // Add security headers
+    SecurityHardener.addSecurityHeaders(responseForAuth);
 
     // Audit log for sensitive actions
     if (pathname.includes("/admin") || pathname.includes("/settings") || pathname.includes("/dashboard/settings")) {

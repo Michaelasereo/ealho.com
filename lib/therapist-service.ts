@@ -6,6 +6,7 @@ class TherapistService {
   private CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   
   // SINGLE METHOD to fetch therapist profile (used everywhere)
+  // userId can be either the database user ID or the Supabase Auth user ID (auth_user_id)
   async getTherapistProfile(userId: string, forceRefresh = false): Promise<TherapistProfile> {
     const now = Date.now();
     const cacheKey = `therapist-${userId}`;
@@ -23,20 +24,95 @@ class TherapistService {
     
     const supabase = createBrowserClient();
     
-    // Fetch ALL data in ONE query
-    const { data, error } = await supabase
-      .from('users')
-      .select(`
-        id,
-        name,
-        email,
-        bio,
-        image,
-        metadata,
-        updated_at
-      `)
-      .eq('id', userId)
-      .single();
+    // First, try to get the current session to determine if userId is auth_user_id or database id
+    const { data: { session } } = await supabase.auth.getSession();
+    const isAuthUserId = session?.user?.id === userId;
+    
+    let data = null;
+    let error = null;
+    
+    // Try querying by auth_user_id first (if it's an auth user ID)
+    // Otherwise try by database id
+    if (isAuthUserId) {
+      const result = await supabase
+        .from('users')
+        .select(`
+          id,
+          name,
+          email,
+          bio,
+          image,
+          metadata,
+          updated_at
+        `)
+        .eq('auth_user_id', userId)
+        .eq('role', 'THERAPIST')
+        .single();
+      
+      data = result.data;
+      error = result.error;
+      
+      // If not found, try by id as fallback
+      if (error && error.code === 'PGRST116') {
+        const fallbackResult = await supabase
+          .from('users')
+          .select(`
+            id,
+            name,
+            email,
+            bio,
+            image,
+            metadata,
+            updated_at
+          `)
+          .eq('id', userId)
+          .eq('role', 'THERAPIST')
+          .single();
+        
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+      }
+    } else {
+      // Try by id first
+      const result = await supabase
+        .from('users')
+        .select(`
+          id,
+          name,
+          email,
+          bio,
+          image,
+          metadata,
+          updated_at
+        `)
+        .eq('id', userId)
+        .eq('role', 'THERAPIST')
+        .single();
+      
+      data = result.data;
+      error = result.error;
+      
+      // If not found and we have a session, try by auth_user_id as fallback
+      if (error && error.code === 'PGRST116' && session?.user?.id) {
+        const fallbackResult = await supabase
+          .from('users')
+          .select(`
+            id,
+            name,
+            email,
+            bio,
+            image,
+            metadata,
+            updated_at
+          `)
+          .eq('auth_user_id', session.user.id)
+          .eq('role', 'THERAPIST')
+          .single();
+        
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+      }
+    }
     
     if (error) {
       console.error('Error fetching therapist profile:', error);
@@ -109,8 +185,29 @@ class TherapistService {
   }
   
   // Update profile (invalidate cache after)
+  // userId can be either the database user ID or the Supabase Auth user ID (auth_user_id)
   async updateProfile(userId: string, updates: Partial<TherapistProfile>) {
     const supabase = createBrowserClient();
+    
+    // First, get the current session to determine if userId is auth_user_id or database id
+    const { data: { session } } = await supabase.auth.getSession();
+    const isAuthUserId = session?.user?.id === userId;
+    
+    // If userId is auth_user_id, we need to get the database user ID first
+    let dbUserId = userId;
+    if (isAuthUserId) {
+      const { data: userData, error: fetchError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', userId)
+        .eq('role', 'THERAPIST')
+        .single();
+      
+      if (fetchError || !userData) {
+        throw new Error('Therapist profile not found');
+      }
+      dbUserId = userData.id;
+    }
     
     // Separate main fields from metadata
     const { specialization, licenseNumber, experience, location, qualifications, updatedAt, ...mainFields } = updates;
@@ -133,7 +230,7 @@ class TherapistService {
       const { data: current, error: fetchError } = await supabase
         .from('users')
         .select('metadata')
-        .eq('id', userId)
+        .eq('id', dbUserId)
         .single();
       
       if (fetchError) {
@@ -151,12 +248,13 @@ class TherapistService {
       };
     }
     
-    console.log('Updating profile:', { userId, updateData });
+    console.log('Updating profile:', { userId, dbUserId, updateData });
     
     const { data, error } = await supabase
       .from('users')
       .update(updateData)
-      .eq('id', userId)
+      .eq('id', dbUserId)
+      .eq('role', 'THERAPIST') // Ensure we're updating a therapist account
       .select('id, name, email, bio, image, updated_at')
       .single();
     
@@ -167,8 +265,11 @@ class TherapistService {
     
     console.log('Profile updated successfully:', data);
     
-    // Invalidate cache
+    // Invalidate cache for both userId and dbUserId
     this.cache.delete(`therapist-${userId}`);
+    if (dbUserId !== userId) {
+      this.cache.delete(`therapist-${dbUserId}`);
+    }
     
     return { success: true, data };
   }

@@ -35,7 +35,7 @@ export default async function SessionNotesPage() {
         userId: user.id,
         timestamp: new Date().toISOString(),
       });
-      redirect("/therapist-enrollment");
+      redirect("/therapist-signup");
     }
 
     if (dbUser.role !== "THERAPIST") {
@@ -87,6 +87,10 @@ export default async function SessionNotesPage() {
         created_at,
         updated_at,
         completed_at,
+        transcription_status,
+        ai_processing_status,
+        therapist_reviewed,
+        audio_recording_url,
         bookings (
           id,
           title,

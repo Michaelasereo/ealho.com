@@ -111,11 +111,11 @@ export function UserMobileHeader({ onMenuClick }: { onMenuClick?: () => void }) 
         {/* Left: Logo only */}
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/daiyet logo.svg"
+              src="/daiyet%20logo.svg"
               alt="Daiyet"
               width={120}
               height={32}
-              className="h-8 w-auto"
+              className="h-8 w-auto object-contain"
             />
             <span className="text-xs font-medium text-white/60">Therapy</span>
           </Link>

@@ -24,9 +24,9 @@ export async function GET(request: NextRequest) {
       if (process.env.NODE_ENV === 'development') {
         const { getCurrentUserFromRequest } = await import("@/lib/auth-helpers");
         const devUser = await getCurrentUserFromRequest(request);
-        if (devUser && devUser.role === 'DIETITIAN') {
+        if (devUser && (devUser.role === 'DIETITIAN' || devUser.role === 'THERAPIST')) {
           dietitian = devUser;
-          console.log("SessionRequest GET - Using dev dietitian:", dietitian.id);
+          console.log("SessionRequest GET - Using dev dietitian/therapist:", dietitian.id, dietitian.role);
         } else {
           console.error("SessionRequest GET - Authentication error", {
             error: authError?.message,

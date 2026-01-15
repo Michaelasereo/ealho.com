@@ -35,6 +35,30 @@ export default function UpcomingMeetingsPage() {
     (b) => b.status === "CONFIRMED" && new Date(b.startTime) >= now
   );
 
+  // Handle booking cancellation
+  const handleCancelBooking = async (bookingId: string) => {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ status: "CANCELLED" }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.details || "Failed to cancel booking");
+      }
+
+      // Bookings will automatically update via SSE stream
+    } catch (error: any) {
+      console.error("Error canceling booking:", error);
+      throw error; // Re-throw to let the modal handle the error
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col lg:flex-row">
       {/* Mobile Header - Only on mobile */}
@@ -65,7 +89,11 @@ export default function UpcomingMeetingsPage() {
 
           {/* Bookings List */}
           {upcomingBookings.length > 0 ? (
-            <BookingsList bookings={upcomingBookings} type="upcoming" />
+            <BookingsList 
+              bookings={upcomingBookings} 
+              type="upcoming" 
+              onCancel={handleCancelBooking}
+            />
           ) : (
             <div className="text-center py-12 border border-[#262626] rounded-lg">
               <p className="text-sm text-[#9ca3af]">No upcoming meetings scheduled.</p>

@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server/client";
 import { createAdminClientServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { getDevUserFromPath } from "@/lib/auth-helpers";
 import { DashboardProfileInitializer } from "./DashboardProfileInitializer";
+import { OnboardingWrapper } from "./OnboardingWrapper";
+import { UnifiedUserSystem } from "@/lib/auth/unified-user-system";
+import { OnboardingStateMachine } from "@/lib/onboarding/state-machine";
 
 /**
  * Dashboard layout that fetches user profile server-side and initializes
@@ -15,20 +17,6 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   try {
-    // DEVELOPMENT MODE: Use hardcoded dietitian user
-    const devUser = getDevUserFromPath('/dashboard');
-    if (devUser) {
-      const initialProfile = {
-        name: devUser.name || null,
-        image: devUser.image || null,
-      };
-      return (
-        <DashboardProfileInitializer initialProfile={initialProfile}>
-          {children}
-        </DashboardProfileInitializer>
-      );
-    }
-
     // Fetch user and profile server-side
     const supabase = await createClient();
     const {
@@ -40,44 +28,13 @@ export default async function DashboardLayout({
       redirect("/dietitian-login");
     }
 
-    // Fetch profile from database - look up by (auth_user_id, role)
+    // Fetch profile from database using unified user system
     const supabaseAdmin = createAdminClientServer();
-    let { data: dbUser, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("name, image, role, id, auth_user_id")
-      .eq("auth_user_id", user.id)
-      .eq("role", "DIETITIAN")
-      .maybeSingle();
-
-    // Fallback: try by id (for backward compatibility)
-    if (userError || !dbUser) {
-      const { data: userById, error: errorById } = await supabaseAdmin
-        .from("users")
-        .select("name, image, role, id, auth_user_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!errorById && userById) {
-        if (userById.role !== "DIETITIAN") {
-          // User exists but with different role - redirect appropriately
-          if (userById.role === "THERAPIST") redirect("/therapist-dashboard");
-          else if (userById.role === "USER") redirect("/user-dashboard");
-          else if (userById.role === "ADMIN") redirect("/admin");
-          else redirect("/");
-        }
-        dbUser = userById;
-        
-        // Update auth_user_id if not set
-        if (!dbUser.auth_user_id) {
-          await supabaseAdmin
-            .from("users")
-            .update({ auth_user_id: user.id })
-            .eq("id", dbUser.id);
-        }
-      } else {
-        userError = errorById;
-      }
-    }
+    const { user: dbUser, error: userError } = await UnifiedUserSystem.getUser(
+      user.id,
+      "DIETITIAN",
+      supabaseAdmin
+    );
 
     if (userError || !dbUser) {
       redirect("/dietitian-enrollment");
@@ -95,9 +52,21 @@ export default async function DashboardLayout({
       image: dbUser.image || null,
     };
 
+    // Check onboarding status from state machine
+    const { progress: onboardingProgress } = await OnboardingStateMachine.getCurrentStage(
+      dbUser.id,
+      supabaseAdmin
+    );
+    const onboardingCompleted = onboardingProgress?.current_stage === "COMPLETED" || dbUser.onboarding_completed === true;
+
     return (
       <DashboardProfileInitializer initialProfile={initialProfile}>
-        {children}
+        <OnboardingWrapper
+          onboardingCompleted={onboardingCompleted}
+          userRole="DIETITIAN"
+        >
+          {children}
+        </OnboardingWrapper>
       </DashboardProfileInitializer>
     );
   } catch (error) {

@@ -14,6 +14,20 @@ function AuthErrorContent() {
   const error = searchParams.get("error");
 
   const getErrorDetails = () => {
+    // Check for flow_state_not_found error (common OAuth issue)
+    const isFlowStateError = errorCode === "server_error" && errorDesc?.includes("Flow state not found") ||
+                            error === "flow_state_not_found" ||
+                            errorDesc?.toLowerCase().includes("flow state not found");
+    
+    if (isFlowStateError) {
+      return {
+        title: "Session Expired",
+        message: "The authentication session expired. This can happen if you took too long or cleared your browser cookies.",
+        suggestion: "Please try signing in again from the enrollment page.",
+        redirectPath: "/therapist-signup",
+      };
+    }
+    
     switch (errorType) {
       case "rate_limit":
         return {
@@ -122,9 +136,9 @@ function AuthErrorContent() {
             >
               Go Back
             </Button>
-            <Link href="/dietitian-login">
+            <Link href={errorDetails.redirectPath || "/dietitian-login"}>
               <Button className="bg-white text-black hover:bg-white/90">
-                Try Signing In Again
+                {errorDetails.redirectPath ? "Return to Enrollment" : "Try Signing In Again"}
               </Button>
             </Link>
           </div>

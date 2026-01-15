@@ -6,6 +6,7 @@ export default function AdminLoginPage() {
       title="Admin login"
       subtitle="Sign in with Google to access the admin dashboard."
       redirectPath="/admin"
+      source="admin-login"
     />
   );
 }

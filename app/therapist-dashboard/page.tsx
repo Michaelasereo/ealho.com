@@ -73,7 +73,7 @@ export default async function DashboardPage() {
         userId: user.id,
         timestamp: new Date().toISOString(),
       });
-      redirect("/therapist-enrollment");
+      redirect("/therapist-signup");
     }
 
     if (dbUser.role !== "THERAPIST") {

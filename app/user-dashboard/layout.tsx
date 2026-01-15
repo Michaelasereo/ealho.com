@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server/client";
 import { createAdminClientServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { UnifiedUserSystem } from "@/lib/auth/unified-user-system";
 import UserDashboardLayoutClient from "./layout-client";
 
 /**
@@ -20,49 +21,26 @@ export default async function UserDashboardLayout({
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
+      console.error("UserDashboardLayout: Auth check failed", { error: authError?.message });
       redirect("/login");
     }
 
-    // Fetch role from database - look up by (auth_user_id, role)
+    // Fetch profile from database using unified user system
     const supabaseAdmin = createAdminClientServer();
-    let { data: dbUser, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("role, id, auth_user_id")
-      .eq("auth_user_id", user.id)
-      .eq("role", "USER")
-      .maybeSingle();
+    const { user: dbUser, error: userError } = await UnifiedUserSystem.getUser(
+      user.id,
+      "USER",
+      supabaseAdmin
+    );
 
-    // Fallback: try by id (for backward compatibility)
     if (userError || !dbUser) {
-      const { data: userById, error: errorById } = await supabaseAdmin
-        .from("users")
-        .select("role, id, auth_user_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!errorById && userById) {
-        if (userById.role !== "USER") {
-          // User exists but with different role - redirect appropriately
-          if (userById.role === "DIETITIAN") redirect("/dashboard");
-          else if (userById.role === "THERAPIST") redirect("/therapist-dashboard");
-          else if (userById.role === "ADMIN") redirect("/admin");
-          else redirect("/");
-        }
-        dbUser = userById;
-        
-        // Update auth_user_id if not set
-        if (!dbUser.auth_user_id) {
-          await supabaseAdmin
-            .from("users")
-            .update({ auth_user_id: user.id })
-            .eq("id", dbUser.id);
-        }
-      } else {
-        userError = errorById;
+      // User doesn't have USER account yet - redirect to login
+      if (user) {
+        console.error("UserDashboardLayout: User not found in database", {
+          userId: user.id,
+          error: userError?.message,
+        });
       }
-    }
-
-    if (userError || !dbUser) {
       redirect("/login");
     }
 

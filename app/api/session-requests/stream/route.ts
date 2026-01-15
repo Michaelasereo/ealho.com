@@ -1,9 +1,8 @@
 import { NextRequest } from "next/server";
-import { createAdminClientServer } from "@/lib/supabase/server";
-import { requireDietitianFromRequest } from "@/lib/auth-helpers";
 
 // Helper function to fetch session requests
-async function fetchSessionRequests(dietitianId: string) {
+// providerId can be either a dietitian or therapist ID (both use dietitian_id field in DB)
+async function fetchSessionRequests(providerId: string) {
   const supabaseAdmin = createAdminClientServer();
   
   const { data: requests, error } = await supabaseAdmin
@@ -29,7 +28,7 @@ async function fetchSessionRequests(dietitianId: string) {
         length
       )
     `)
-    .eq("dietitian_id", dietitianId)
+    .eq("dietitian_id", providerId) // Note: dietitian_id field is used for both dietitians and therapists
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -50,7 +49,7 @@ async function fetchSessionRequests(dietitianId: string) {
             status: req.status,
             mealPlanType: req.meal_plan_type,
             clientEmail: req.client_email,
-            dietitianId: dietitianId,
+            providerId: providerId,
           });
           
           // First try to find by session_request_id
@@ -102,7 +101,7 @@ async function fetchSessionRequests(dietitianId: string) {
               let { data: foundMealPlan, error: foundError } = await supabaseAdmin
                 .from("meal_plans")
                 .select("id, session_request_id, file_url, status, sent_at, user_id, dietitian_id, package_name, created_at, file_name")
-                .eq("dietitian_id", dietitianId)
+                .eq("dietitian_id", providerId)
                 .eq("user_id", user.id)
                 .eq("package_name", req.meal_plan_type || "")
                 .order("created_at", { ascending: false })
@@ -129,7 +128,7 @@ async function fetchSessionRequests(dietitianId: string) {
                 const { data: broaderMealPlan, error: broaderError } = await supabaseAdmin
                   .from("meal_plans")
                   .select("id, session_request_id, file_url, status, sent_at, user_id, dietitian_id, package_name, created_at, file_name")
-                  .eq("dietitian_id", dietitianId)
+                  .eq("dietitian_id", providerId)
                   .eq("user_id", user.id)
                   .is("session_request_id", null) // Only get unlinked meal plans
                   .order("created_at", { ascending: false })
@@ -157,7 +156,7 @@ async function fetchSessionRequests(dietitianId: string) {
               const { data: recentMealPlan, error: recentError } = await supabaseAdmin
                 .from("meal_plans")
                 .select("id, session_request_id, file_url, status, sent_at, user_id, dietitian_id, package_name, created_at, file_name")
-                .eq("dietitian_id", dietitianId)
+                .eq("dietitian_id", providerId)
                 .is("session_request_id", null) // Only get unlinked meal plans
                 .order("created_at", { ascending: false })
                 .limit(1)
@@ -317,28 +316,99 @@ async function fetchSessionRequests(dietitianId: string) {
 }
 
 // GET: SSE endpoint for session requests
+// Supports both DIETITIAN and THERAPIST roles
 export async function GET(request: NextRequest) {
   try {
-    // Authenticate user - use more lenient auth in dev mode
-    let dietitian;
-    try {
-      dietitian = await requireDietitianFromRequest(request);
-    } catch (authError: any) {
-      // In dev mode, try to get dev user
-      if (process.env.NODE_ENV === 'development') {
-        const { getCurrentUserFromRequest } = await import("@/lib/auth-helpers");
-        const devUser = await getCurrentUserFromRequest(request);
-        if (devUser && devUser.role === 'DIETITIAN') {
-          dietitian = devUser;
-        } else {
-          throw authError;
-        }
+    // Authenticate user - supports both DIETITIAN and THERAPIST
+    // Use direct authentication instead of pathname-based lookup
+    const { createRouteHandlerClientFromRequest, getCookieHeader, createAdminClientServer } = await import("@/lib/supabase/server");
+    const { findUserByAuthId } = await import("@/lib/auth/user-lookup");
+    
+    const cookieHeader = getCookieHeader(request);
+    const supabase = createRouteHandlerClientFromRequest(cookieHeader);
+    const supabaseAdmin = createAdminClientServer();
+    
+    // Get auth user from session - try multiple methods
+    let authUser = null;
+    let authError = null;
+    
+    // First try to get session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (session?.access_token) {
+      // Use session token
+      const { data: { user }, error } = await supabase.auth.getUser(session.access_token);
+      authUser = user;
+      authError = error;
+    } else if (!sessionError) {
+      // If no session error but no session, try direct getUser
+      const { data: { user }, error } = await supabase.auth.getUser();
+      authUser = user;
+      authError = error;
+    } else {
+      authError = sessionError;
+    }
+    
+    if (authError || !authUser) {
+      console.error("SSE Stream: No authenticated user", { 
+        error: authError?.message,
+        hasCookies: !!cookieHeader,
+        hasSupabaseCookies: cookieHeader.includes('sb-') || cookieHeader.includes('supabase'),
+      });
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Please sign in first" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Look up user in database - try THERAPIST first, then DIETITIAN
+    let provider = null;
+    let lookupError = null;
+    
+    // Try THERAPIST first
+    const { user: therapistUser, error: therapistError } = await findUserByAuthId(
+      authUser.id,
+      "THERAPIST",
+      supabaseAdmin
+    );
+    
+    if (therapistUser && !therapistError) {
+      provider = therapistUser;
+    } else {
+      // Try DIETITIAN
+      const { user: dietitianUser, error: dietitianError } = await findUserByAuthId(
+        authUser.id,
+        "DIETITIAN",
+        supabaseAdmin
+      );
+      
+      if (dietitianUser && !dietitianError) {
+        provider = dietitianUser;
       } else {
-        throw authError;
+        lookupError = therapistError || dietitianError;
       }
     }
     
-    const dietitianId = dietitian.id;
+    if (!provider) {
+      console.error("SSE Stream: User not found or not a provider", {
+        authUserId: authUser.id,
+        error: lookupError?.message,
+      });
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Therapist or Dietitian access required" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Verify role
+    if (provider.role !== "DIETITIAN" && provider.role !== "THERAPIST") {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Therapist or Dietitian access required" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    
+    const providerId = provider.id; // Use providerId (works for both dietitians and therapists)
 
     // Set SSE headers
     const headers = new Headers({
@@ -354,7 +424,7 @@ export async function GET(request: NextRequest) {
 
         // Send initial data
         try {
-          const initialRequests = await fetchSessionRequests(dietitianId);
+          const initialRequests = await fetchSessionRequests(providerId);
           controller.enqueue(
             `data: ${JSON.stringify({ type: "initial", data: initialRequests })}\n\n`
           );
@@ -367,19 +437,19 @@ export async function GET(request: NextRequest) {
 
         // Set up database listeners for both session_requests and meal_plans
         const channel = supabaseAdmin
-          .channel(`session-stream:${dietitianId}`)
+          .channel(`session-stream:${providerId}`)
           .on(
             "postgres_changes",
             {
               event: "*",
               schema: "public",
               table: "session_requests",
-              filter: `dietitian_id=eq.${dietitianId}`,
+              filter: `dietitian_id=eq.${providerId}`, // Note: dietitian_id field is used for both dietitians and therapists
             },
             async (payload) => {
               try {
                 // Fetch fresh data to ensure consistency
-                const updatedRequests = await fetchSessionRequests(dietitianId);
+                const updatedRequests = await fetchSessionRequests(providerId);
                 controller.enqueue(
                   `data: ${JSON.stringify({ type: "update", data: updatedRequests })}\n\n`
                 );
@@ -398,7 +468,7 @@ export async function GET(request: NextRequest) {
             async (payload) => {
               try {
                 // When a meal plan is created/updated, refresh all requests to get updated meal plan data
-                const updatedRequests = await fetchSessionRequests(dietitianId);
+                const updatedRequests = await fetchSessionRequests(providerId);
                 controller.enqueue(
                   `data: ${JSON.stringify({ type: "update", data: updatedRequests })}\n\n`
                 );

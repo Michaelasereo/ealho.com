@@ -1,0 +1,778 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model access_logs {
+  id         BigInt    @id @default(autoincrement())
+  user_id    String?   @db.Uuid
+  path       String
+  method     String
+  user_agent String?
+  ip_address String?
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users?    @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_access_logs_created_at")
+  @@index([method], map: "idx_access_logs_method")
+  @@index([path], map: "idx_access_logs_path")
+  @@index([user_id], map: "idx_access_logs_user_id")
+  @@index([user_id, path, created_at(sort: Desc)], map: "idx_access_logs_user_path")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model audit_logs {
+  id                                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_id                          String?   @db.Uuid
+  action                            String
+  entity_type                       String
+  entity_id                         String?   @db.Uuid
+  meta                              Json?
+  created_at                        DateTime? @default(now()) @db.Timestamp(6)
+  event                             String
+  user_id                           String?   @db.Uuid
+  tenant_id                         String?   @db.Uuid
+  ip_address                        String?   @db.Inet
+  user_agent                        String?
+  metadata                          Json      @default("{}")
+  profiles                          profiles? @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_audit_logs_tenant_idTousers users?    @relation("audit_logs_tenant_idTousers", fields: [tenant_id], references: [id], onUpdate: NoAction)
+  users_audit_logs_user_idTousers   users?    @relation("audit_logs_user_idTousers", fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_audit_logs_created_at")
+  @@index([event], map: "idx_audit_logs_event")
+  @@index([event, created_at(sort: Desc)], map: "idx_audit_logs_event_created_at")
+  @@index([metadata], map: "idx_audit_logs_metadata", type: Gin)
+  @@index([tenant_id], map: "idx_audit_logs_tenant_id")
+  @@index([user_id, event, created_at(sort: Desc)], map: "idx_audit_logs_user_event")
+  @@index([user_id], map: "idx_audit_logs_user_id")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model auth_audit_log {
+  id         BigInt    @id @default(autoincrement())
+  user_id    String?   @db.Uuid
+  action     String
+  provider   String?
+  ip_address String?
+  user_agent String?
+  success    Boolean?  @default(true)
+  metadata   Json?     @default("{}")
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users?    @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([action], map: "idx_auth_audit_log_action")
+  @@index([created_at(sort: Desc)], map: "idx_auth_audit_log_created_at")
+  @@index([provider], map: "idx_auth_audit_log_provider")
+  @@index([success], map: "idx_auth_audit_log_success")
+  @@index([user_id], map: "idx_auth_audit_log_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model availability_date_override_slots {
+  id                          String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  override_id                 String                      @db.Uuid
+  start_time                  DateTime                    @db.Time(6)
+  end_time                    DateTime                    @db.Time(6)
+  created_at                  DateTime?                   @default(now()) @db.Timestamptz(6)
+  availability_date_overrides availability_date_overrides @relation(fields: [override_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([override_id], map: "idx_availability_date_override_slots_override_id")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model availability_date_overrides {
+  id                               String                             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dietitian_id                     String                             @db.Uuid
+  override_date                    DateTime                           @db.Date
+  is_unavailable                   Boolean?                           @default(false)
+  timezone                         String?                            @default("Africa/Lagos")
+  created_at                       DateTime?                          @default(now()) @db.Timestamptz(6)
+  updated_at                       DateTime?                          @default(now()) @db.Timestamptz(6)
+  availability_date_override_slots availability_date_override_slots[]
+  users                            users                              @relation(fields: [dietitian_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([dietitian_id, override_date], map: "unique_override_per_date")
+  @@index([override_date], map: "idx_availability_date_overrides_date")
+  @@index([dietitian_id, override_date], map: "idx_availability_date_overrides_dietitian_date")
+  @@index([dietitian_id], map: "idx_availability_date_overrides_dietitian_id")
+}
+
+model availability_overrides {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dietitian_id String    @db.Uuid
+  date         DateTime  @db.Date
+  start_time   DateTime? @db.Time(6)
+  end_time     DateTime? @db.Time(6)
+  is_closed    Boolean?  @default(false)
+  note         String?
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  profiles     profiles  @relation(fields: [dietitian_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model availability_rules {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dietitian_id   String    @db.Uuid
+  weekday        Int
+  start_time     DateTime  @db.Time(6)
+  end_time       DateTime  @db.Time(6)
+  timezone       String    @default("Africa/Lagos")
+  effective_from DateTime? @db.Date
+  effective_to   DateTime? @db.Date
+  is_override    Boolean?  @default(false)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  updated_at     DateTime? @default(now()) @db.Timestamp(6)
+  profiles       profiles  @relation(fields: [dietitian_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model availability_schedule_slots {
+  id                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  schedule_id            String                 @db.Uuid
+  day_of_week            Int
+  start_time             DateTime               @db.Time(6)
+  end_time               DateTime               @db.Time(6)
+  enabled                Boolean?               @default(true)
+  created_at             DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?              @default(now()) @db.Timestamptz(6)
+  availability_schedules availability_schedules @relation(fields: [schedule_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([day_of_week, enabled], map: "idx_availability_schedule_slots_day_enabled")
+  @@index([schedule_id], map: "idx_availability_schedule_slots_schedule_id")
+}
+
+model availability_schedules {
+  id                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dietitian_id                String                        @db.Uuid
+  name                        String
+  is_default                  Boolean?                      @default(false)
+  timezone                    String?                       @default("Africa/Lagos")
+  created_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  active                      Boolean?                      @default(true)
+  availability_schedule_slots availability_schedule_slots[]
+  users                       users                         @relation(fields: [dietitian_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  event_types                 event_types[]
+
+  @@index([dietitian_id, active], map: "idx_availability_schedules_active")
+  @@index([dietitian_id], map: "idx_availability_schedules_dietitian_id")
+  @@index([dietitian_id, is_default], map: "idx_availability_schedules_is_default")
+}
+
+model booking_attendees {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  booking_id String    @db.Uuid
+  profile_id String?   @db.Uuid
+  role       String?   @default("guest")
+  email      String?
+  status     String?   @default("invited")
+  bookings   bookings  @relation(fields: [booking_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profiles   profiles? @relation(fields: [profile_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model booking_messages {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  booking_id String    @db.Uuid
+  sender_id  String    @db.Uuid
+  message    String
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  bookings   bookings  @relation(fields: [booking_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profiles   profiles  @relation(fields: [sender_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model bookings {
+  id                                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                              String
+  description                        String?
+  start_time                         DateTime              @db.Timestamptz(6)
+  end_time                           DateTime              @db.Timestamptz(6)
+  status                             String?               @default("PENDING")
+  event_type_id                      String                @db.Uuid
+  user_id                            String                @db.Uuid
+  dietitian_id                       String                @db.Uuid
+  created_at                         DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at                         DateTime?             @default(now()) @db.Timestamptz(6)
+  patient_id                         String?               @db.Uuid
+  meeting_link                       String?
+  location                           String?
+  canceled_at                        DateTime?             @db.Timestamp(6)
+  cancel_reason                      String?
+  user_age                           Int?
+  user_occupation                    String?
+  user_medical_condition             String?
+  user_monthly_food_budget           Decimal?              @db.Decimal(10, 2)
+  user_complaint                     String?
+  booking_attendees                  booking_attendees[]
+  booking_messages                   booking_messages[]
+  users_bookings_dietitian_idTousers users                 @relation("bookings_dietitian_idTousers", fields: [dietitian_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  event_types                        event_types           @relation(fields: [event_type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profiles                           profiles?             @relation(fields: [patient_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_bookings_user_idTousers      users                 @relation("bookings_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  payments                           payments?
+  payout_items                       payout_items[]
+  session_notes                      session_notes?
+  session_requests                   session_requests[]
+  transactions_ledger                transactions_ledger[]
+
+  @@index([dietitian_id], map: "idx_bookings_dietitian")
+  @@index([dietitian_id], map: "idx_bookings_dietitian_id")
+  @@index([event_type_id], map: "idx_bookings_event_type_id")
+  @@index([patient_id], map: "idx_bookings_patient")
+  @@index([start_time], map: "idx_bookings_start")
+  @@index([start_time], map: "idx_bookings_start_time")
+  @@index([status], map: "idx_bookings_status")
+  @@index([user_id], map: "idx_bookings_user_id")
+}
+
+model delivery_settings {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dietitian_id       String?   @db.Uuid
+  delivery_window    String?
+  revisions_included String?
+  notes              String?
+  profiles           profiles? @relation(fields: [dietitian_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model dietitian_documents {
+  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enrollment_id         String                @db.Uuid
+  file_url              String
+  file_type             String?
+  verified              Boolean?              @default(false)
+  created_at            DateTime?             @default(now()) @db.Timestamp(6)
+  dietitian_enrollments dietitian_enrollments @relation(fields: [enrollment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model dietitian_enrollments {
+  id                                                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profile_id                                           String                @db.Uuid
+  status                                               enrollment_status     @default(draft)
+  license_number                                       String?
+  experience_range                                     String?
+  specialization                                       String?
+  bio                                                  String?
+  dob                                                  DateTime?             @db.Date
+  location                                             String?
+  phone                                                String?
+  profile_image_url                                    String?
+  terms_read_at                                        DateTime?             @db.Timestamp(6)
+  privacy_read_at                                      DateTime?             @db.Timestamp(6)
+  submitted_at                                         DateTime?             @db.Timestamp(6)
+  reviewed_at                                          DateTime?             @db.Timestamp(6)
+  reviewed_by                                          String?               @db.Uuid
+  rejection_reason                                     String?
+  created_at                                           DateTime?             @default(now()) @db.Timestamp(6)
+  updated_at                                           DateTime?             @default(now()) @db.Timestamp(6)
+  dietitian_documents                                  dietitian_documents[]
+  profiles_dietitian_enrollments_profile_idToprofiles  profiles              @relation("dietitian_enrollments_profile_idToprofiles", fields: [profile_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles_dietitian_enrollments_reviewed_byToprofiles profiles?             @relation("dietitian_enrollments_reviewed_byToprofiles", fields: [reviewed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([status], map: "idx_dietitian_enrollments_status")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model email_dead_letter_queue {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  original_id String?      @db.Uuid
+  payload     Json
+  error       String?
+  attempts    Int?
+  created_at  DateTime?    @default(now()) @db.Timestamptz(6)
+  email_queue email_queue? @relation(fields: [original_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model email_queue {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type                    String                    @default("email")
+  payload                 Json
+  status                  String?                   @default("pending")
+  attempts                Int?                      @default(0)
+  max_attempts            Int?                      @default(3)
+  scheduled_for           DateTime?                 @default(now()) @db.Timestamptz(6)
+  last_attempt_at         DateTime?                 @db.Timestamptz(6)
+  completed_at            DateTime?                 @db.Timestamptz(6)
+  created_at              DateTime?                 @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?                 @default(now()) @db.Timestamptz(6)
+  email_dead_letter_queue email_dead_letter_queue[]
+
+  @@index([status, scheduled_for], map: "idx_email_queue_status")
+  @@index([type], map: "idx_email_queue_type")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model event_types {
+  id                       String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                    String
+  slug                     String
+  description              String?
+  length                   Int?                    @default(30)
+  price                    Decimal?                @default(0) @db.Decimal(10, 2)
+  currency                 String?                 @default("NGN")
+  user_id                  String                  @db.Uuid
+  active                   Boolean?                @default(true)
+  created_at               DateTime?               @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?               @default(now()) @db.Timestamptz(6)
+  length_minutes           Int?                    @default(30)
+  price_cents              Int?                    @default(0)
+  buffer_before            Int?                    @default(0)
+  buffer_after             Int?                    @default(0)
+  availability_schedule_id String?                 @db.Uuid
+  bookings                 bookings[]
+  availability_schedules   availability_schedules? @relation(fields: [availability_schedule_id], references: [id], onUpdate: NoAction)
+  users                    users                   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  session_requests         session_requests[]
+
+  @@unique([user_id, slug])
+  @@index([availability_schedule_id], map: "idx_event_types_availability_schedule_id")
+  @@index([user_id], map: "idx_event_types_user_id")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model google_oauth_tokens {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String    @unique @db.Uuid
+  access_token  String
+  refresh_token String
+  expires_at    DateTime  @db.Timestamptz(6)
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_google_oauth_tokens_user_id")
+}
+
+model meal_plan_files {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  meal_plan_id String    @db.Uuid
+  file_url     String
+  mime_type    String?
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model meal_plan_packages {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dietitian_id String?   @db.Uuid
+  name         String
+  price_cents  Int
+  currency     String    @default("NGN")
+  details      String?
+  active       Boolean?  @default(true)
+  sort_order   Int?      @default(0)
+  profiles     profiles? @relation(fields: [dietitian_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model meal_plans {
+  id                                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_request_id                   String?           @db.Uuid
+  dietitian_id                         String            @db.Uuid
+  user_id                              String            @db.Uuid
+  package_name                         String
+  file_url                             String?
+  file_name                            String?
+  status                               String?           @default("PENDING")
+  sent_at                              DateTime?         @db.Timestamptz(6)
+  created_at                           DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at                           DateTime?         @default(now()) @db.Timestamptz(6)
+  users_meal_plans_dietitian_idTousers users             @relation("meal_plans_dietitian_idTousers", fields: [dietitian_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  session_requests                     session_requests? @relation(fields: [session_request_id], references: [id], onUpdate: NoAction)
+  users_meal_plans_user_idTousers      users             @relation("meal_plans_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([dietitian_id], map: "idx_meal_plans_dietitian_id")
+  @@index([session_request_id], map: "idx_meal_plans_session_request_id")
+  @@index([status], map: "idx_meal_plans_status")
+  @@index([user_id], map: "idx_meal_plans_user_id")
+}
+
+model notification_preferences {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profile_id  String    @db.Uuid
+  preferences Json?     @default("{}")
+  updated_at  DateTime? @default(now()) @db.Timestamp(6)
+  profiles    profiles  @relation(fields: [profile_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model notifications {
+  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipient_id String               @db.Uuid
+  channel      channel_enum
+  template     String?
+  payload      Json?
+  status       notification_status? @default(queued)
+  sent_at      DateTime?            @db.Timestamp(6)
+  read_at      DateTime?            @db.Timestamp(6)
+  created_at   DateTime?            @default(now()) @db.Timestamp(6)
+  profiles     profiles             @relation(fields: [recipient_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model onboarding_progress {
+  user_id       String   @id @db.Uuid
+  current_stage String   @default("STARTED")
+  data          Json     @default("{}")
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+  users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([current_stage], map: "idx_onboarding_progress_stage")
+  @@index([user_id], map: "idx_onboarding_progress_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model out_of_office_periods {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dietitian_id    String    @db.Uuid
+  start_date      DateTime  @db.Date
+  end_date        DateTime  @db.Date
+  reason          String?
+  notes           String?
+  forward_to_team Boolean?  @default(false)
+  forward_url     String?
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime? @default(now()) @db.Timestamptz(6)
+  users           users     @relation(fields: [dietitian_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([start_date, end_date], map: "idx_out_of_office_periods_dates")
+  @@index([dietitian_id, start_date, end_date], map: "idx_out_of_office_periods_dietitian_dates")
+  @@index([dietitian_id], map: "idx_out_of_office_periods_dietitian_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model payments {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  amount       Decimal   @db.Decimal(10, 2)
+  currency     String?   @default("NGN")
+  status       String?   @default("PENDING")
+  paystack_ref String?   @unique
+  booking_id   String    @unique @db.Uuid
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
+  bookings     bookings  @relation(fields: [booking_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([booking_id], map: "idx_payments_booking")
+  @@index([booking_id], map: "idx_payments_booking_id")
+  @@index([paystack_ref], map: "idx_payments_paystack_ref")
+  @@index([status], map: "idx_payments_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payout_items {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payout_id        String    @db.Uuid
+  booking_id       String?   @db.Uuid
+  amount_cents     Int
+  platform_cut_pct Int?
+  bookings         bookings? @relation(fields: [booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payouts          payouts   @relation(fields: [payout_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payouts {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dietitian_id String         @db.Uuid
+  amount_cents Int
+  currency     String         @default("NGN")
+  status       payout_status  @default(pending)
+  method       String?
+  reference    String?
+  note         String?
+  paid_at      DateTime?      @db.Timestamp(6)
+  created_at   DateTime?      @default(now()) @db.Timestamp(6)
+  updated_at   DateTime?      @default(now()) @db.Timestamp(6)
+  payout_items payout_items[]
+  profiles     profiles       @relation(fields: [dietitian_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([dietitian_id], map: "idx_payouts_dietitian")
+  @@index([status], map: "idx_payouts_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model pricing_rules {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scope               String
+  target_id           String?   @db.Uuid
+  session_price_cents Int?
+  currency            String?   @default("NGN")
+  platform_cut_pct    Int?
+  effective_from      DateTime? @db.Date
+  effective_to        DateTime? @db.Date
+  active              Boolean?  @default(true)
+}
+
+model profiles {
+  id                                                                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  auth_user_id                                                      String?                    @unique @db.Uuid
+  role                                                              String?                    @default("patient")
+  is_admin                                                          Boolean?                   @default(false)
+  status                                                            String?                    @default("active")
+  name                                                              String?
+  phone                                                             String?
+  avatar_url                                                        String?
+  timezone                                                          String?                    @default("Africa/Lagos")
+  locale                                                            String?
+  created_at                                                        DateTime?                  @default(now()) @db.Timestamp(6)
+  updated_at                                                        DateTime?                  @default(now()) @db.Timestamp(6)
+  audit_logs                                                        audit_logs[]
+  availability_overrides                                            availability_overrides[]
+  availability_rules                                                availability_rules[]
+  booking_attendees                                                 booking_attendees[]
+  booking_messages                                                  booking_messages[]
+  bookings                                                          bookings[]
+  delivery_settings                                                 delivery_settings[]
+  dietitian_enrollments_dietitian_enrollments_profile_idToprofiles  dietitian_enrollments[]    @relation("dietitian_enrollments_profile_idToprofiles")
+  dietitian_enrollments_dietitian_enrollments_reviewed_byToprofiles dietitian_enrollments[]    @relation("dietitian_enrollments_reviewed_byToprofiles")
+  meal_plan_packages                                                meal_plan_packages[]
+  notification_preferences                                          notification_preferences[]
+  notifications                                                     notifications[]
+  payouts                                                           payouts[]
+  transactions_ledger                                               transactions_ledger[]
+
+  @@index([auth_user_id], map: "idx_profiles_auth")
+  @@index([role], map: "idx_profiles_role")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model scheduled_jobs {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type            String
+  scheduled_for   DateTime  @db.Timestamptz(6)
+  status          String?   @default("pending")
+  payload         Json      @default("{}")
+  attempts        Int?      @default(0)
+  max_attempts    Int?      @default(3)
+  last_attempt_at DateTime? @db.Timestamptz(6)
+  error           String?
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([scheduled_for], map: "idx_scheduled_jobs_scheduled_for")
+  @@index([type], map: "idx_scheduled_jobs_type")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model session_notes {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  booking_id                String    @unique @db.Uuid
+  therapist_id              String    @db.Uuid
+  client_id                 String    @db.Uuid
+  client_name               String
+  session_number            Int
+  session_date              DateTime  @db.Timestamptz(6)
+  session_time              String
+  therapist_name            String
+  location                  String?   @default("Virtual")
+  patient_complaint         String?
+  personal_history          String?
+  family_history            String?
+  presentation              String?
+  formulation_and_diagnosis String?
+  treatment_plan            String?
+  assignments               String?
+  status                    String?   @default("PENDING")
+  created_at                DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime? @default(now()) @db.Timestamptz(6)
+  completed_at              DateTime? @db.Timestamptz(6)
+
+  // AI Notes fields
+  audio_recording_url    String?
+  transcription_text     String?   @db.Text
+  de_identified_text     String?   @db.Text
+  ai_generated_note      Json?
+  is_ai_generated        Boolean?  @default(false)
+  ai_processing_status   String?
+  ai_processed_at        DateTime? @db.Timestamptz(6)
+  therapist_reviewed     Boolean?  @default(false)
+  therapist_reviewed_at  DateTime? @db.Timestamptz(6)
+  transcription_status   String?
+  audio_file_size_bytes  BigInt?
+  audio_duration_seconds Int?
+
+  bookings                                bookings @relation(fields: [booking_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_session_notes_client_idTousers    users    @relation("session_notes_client_idTousers", fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_session_notes_therapist_idTousers users    @relation("session_notes_therapist_idTousers", fields: [therapist_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([booking_id], map: "idx_session_notes_booking_id")
+  @@index([client_id], map: "idx_session_notes_client_id")
+  @@index([client_id, therapist_id], map: "idx_session_notes_client_therapist")
+  @@index([status], map: "idx_session_notes_status")
+  @@index([therapist_id], map: "idx_session_notes_therapist_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model session_requests {
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  request_type        String
+  client_name         String
+  client_email        String
+  dietitian_id        String       @db.Uuid
+  message             String?
+  status              String?      @default("PENDING")
+  event_type_id       String?      @db.Uuid
+  meal_plan_type      String?
+  price               Decimal?     @db.Decimal(10, 2)
+  currency            String?      @default("NGN")
+  original_booking_id String?      @db.Uuid
+  requested_date      DateTime?    @db.Timestamptz(6)
+  created_at          DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?    @default(now()) @db.Timestamptz(6)
+  meal_plans          meal_plans[]
+  users               users        @relation(fields: [dietitian_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  event_types         event_types? @relation(fields: [event_type_id], references: [id], onUpdate: NoAction)
+  bookings            bookings?    @relation(fields: [original_booking_id], references: [id], onUpdate: NoAction)
+
+  @@index([client_email], map: "idx_session_requests_client_email")
+  @@index([dietitian_id], map: "idx_session_requests_dietitian_id")
+  @@index([event_type_id], map: "idx_session_requests_event_type_id")
+  @@index([original_booking_id], map: "idx_session_requests_original_booking_id")
+  @@index([status], map: "idx_session_requests_status")
+}
+
+model transactions_ledger {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type                String
+  amount_cents        Int
+  currency            String    @default("NGN")
+  source_booking_id   String?   @db.Uuid
+  target_dietitian_id String?   @db.Uuid
+  provider_ref        String?
+  meta                Json?
+  created_at          DateTime? @default(now()) @db.Timestamp(6)
+  bookings            bookings? @relation(fields: [source_booking_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles            profiles? @relation(fields: [target_dietitian_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id                                              String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                                            String?
+  email                                           String
+  email_verified                                  DateTime?                     @db.Timestamptz(6)
+  image                                           String?
+  role                                            String?                       @default("USER")
+  is_admin                                        Boolean?                      @default(false)
+  bio                                             String?
+  created_at                                      DateTime?                     @default(now()) @db.Timestamptz(6)
+  updated_at                                      DateTime?                     @default(now()) @db.Timestamptz(6)
+  account_status                                  String?                       @default("ACTIVE")
+  last_sign_in_at                                 DateTime?                     @db.Timestamptz(6)
+  metadata                                        Json?                         @default("{}")
+  age                                             Int?
+  occupation                                      String?
+  medical_condition                               String?
+  monthly_food_budget                             Decimal?                      @db.Decimal(10, 2)
+  signup_source                                   String?
+  auth_user_id                                    String?                       @db.Uuid
+  onboarding_completed                            Boolean?                      @default(false)
+  gender                                          String?
+  qualifications                                  String[]
+  access_logs                                     access_logs[]
+  audit_logs_audit_logs_tenant_idTousers          audit_logs[]                  @relation("audit_logs_tenant_idTousers")
+  audit_logs_audit_logs_user_idTousers            audit_logs[]                  @relation("audit_logs_user_idTousers")
+  auth_audit_log                                  auth_audit_log[]
+  availability_date_overrides                     availability_date_overrides[]
+  availability_schedules                          availability_schedules[]
+  bookings_bookings_dietitian_idTousers           bookings[]                    @relation("bookings_dietitian_idTousers")
+  bookings_bookings_user_idTousers                bookings[]                    @relation("bookings_user_idTousers")
+  event_types                                     event_types[]
+  google_oauth_tokens                             google_oauth_tokens?
+  meal_plans_meal_plans_dietitian_idTousers       meal_plans[]                  @relation("meal_plans_dietitian_idTousers")
+  meal_plans_meal_plans_user_idTousers            meal_plans[]                  @relation("meal_plans_user_idTousers")
+  onboarding_progress                             onboarding_progress?
+  out_of_office_periods                           out_of_office_periods[]
+  session_notes_session_notes_client_idTousers    session_notes[]               @relation("session_notes_client_idTousers")
+  session_notes_session_notes_therapist_idTousers session_notes[]               @relation("session_notes_therapist_idTousers")
+  session_requests                                session_requests[]
+
+  @@unique([email, role], map: "users_email_role_unique")
+  @@index([account_status], map: "idx_users_account_status")
+  @@index([auth_user_id], map: "idx_users_auth_user_id")
+  @@index([email, role], map: "idx_users_email_role")
+  @@index([email_verified], map: "idx_users_email_verified")
+  @@index([id], map: "idx_users_id")
+  @@index([is_admin], map: "idx_users_is_admin")
+  @@index([last_sign_in_at(sort: Desc)], map: "idx_users_last_sign_in_at")
+  @@index([onboarding_completed], map: "idx_users_onboarding_completed")
+  @@index([signup_source], map: "idx_users_signup_source")
+}
+
+enum booking_status {
+  pending
+  confirmed
+  cancelled
+  completed
+  no_show
+}
+
+enum channel_enum {
+  email
+  push
+  inapp
+  sms
+}
+
+enum enrollment_status {
+  draft
+  submitted
+  approved
+  rejected
+}
+
+enum meal_plan_status {
+  pending
+  paid
+  sent
+}
+
+enum notification_status {
+  queued
+  sent
+  failed
+  read
+}
+
+enum payment_status {
+  pending
+  succeeded
+  failed
+  refunded
+}
+
+enum payout_status {
+  pending
+  processing
+  paid
+  failed
+}
+
+enum role_enum {
+  patient
+  dietitian
+  admin
+}

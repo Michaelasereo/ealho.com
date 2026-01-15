@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { 
   MoreVertical, 
   Video, 
@@ -18,6 +19,7 @@ import {
 import dayjs from "dayjs";
 import { Button } from "@/components/ui/button";
 import { RequestRescheduleModal } from "./RequestRescheduleModal";
+import { CancelBookingModal } from "./CancelBookingModal";
 
 interface BookingCardProps {
   id: string;
@@ -34,7 +36,9 @@ interface BookingCardProps {
     id: string;
     status: "PENDING" | "COMPLETED";
   } | null;
+  status?: string;
   onFillNotes?: (bookingId: string, noteId?: string) => void;
+  onCancel?: (bookingId: string) => Promise<void>;
 }
 
 export function BookingCard({
@@ -49,12 +53,17 @@ export function BookingCard({
   meetingLink,
   eventTypeSlug,
   sessionNote,
+  status,
   onFillNotes,
+  onCancel,
 }: BookingCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -128,10 +137,10 @@ export function BookingCard({
                 variant="outline"
                 size="sm"
                 className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#262626] text-xs h-7 px-3 mb-3"
-                onClick={() => window.open(meetingLink, '_blank')}
+                onClick={() => router.push(`/video-call/${id}`)}
               >
                 <Video className="h-3 w-3 mr-1.5" />
-                Join Google Meet
+                Join Video Call
               </Button>
             ) : (
               <div className="text-xs text-[#9ca3af] mb-3">
@@ -314,11 +323,10 @@ export function BookingCard({
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsMenuOpen(false);
-                    // TODO: Implement cancel event
-                    console.log("Cancel event:", id);
+                    setIsCancelModalOpen(true);
                   }}
-                  disabled
-                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400/50 opacity-50 cursor-not-allowed rounded transition-colors"
+                  disabled={status === "CANCELLED" || status === "COMPLETED" || !onCancel}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-[#262626] rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <XCircle className="h-4 w-4" />
                   Cancel event
@@ -339,6 +347,27 @@ export function BookingCard({
           // TODO: Implement API call to request reschedule
         }}
         bookingTitle={title}
+      />
+
+      {/* Cancel Booking Modal */}
+      <CancelBookingModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        onConfirm={async () => {
+          if (!onCancel) return;
+          setIsCanceling(true);
+          try {
+            await onCancel(id);
+            setIsCancelModalOpen(false);
+          } catch (error) {
+            console.error("Error canceling booking:", error);
+            // Error handling is done in the parent component
+          } finally {
+            setIsCanceling(false);
+          }
+        }}
+        bookingTitle={title}
+        isLoading={isCanceling}
       />
     </div>
   );

@@ -1,59 +1,83 @@
 import { NextResponse } from "next/server";
+import { DatabaseHealthCheck } from "@/lib/health/database-check";
+import { AuthHealthCheck } from "@/lib/health/auth-check";
+import { StorageHealthCheck } from "@/lib/health/storage-check";
+import { TenantMetricsService } from "@/lib/metrics/tenant-metrics";
 
 export async function GET() {
   try {
-    const diagnostics: Record<string, any> = {
-      timestamp: new Date().toISOString(),
-      status: "ok",
-      checks: {},
-    };
+    const checks: Record<string, any> = {};
+    let overallStatus: "healthy" | "degraded" | "unhealthy" = "healthy";
 
     // Check environment variables
-    diagnostics.checks.env = {
+    checks.env = {
       NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
       NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      healthy: !!(
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+      ),
     };
 
-    // Check Supabase connection (only if env vars are set)
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      try {
-        const { createAdminClientServer } = await import("@/lib/supabase/server");
-        const supabaseAdmin = createAdminClientServer();
-        const { data, error } = await supabaseAdmin.from("users").select("id").limit(1);
-        
-        diagnostics.checks.database = {
-          connected: !error,
-          error: error?.message || null,
-        };
-
-        // Check if tables exist
-        const tables = ["users", "auth_audit_log", "access_logs"];
-        const tableChecks: Record<string, boolean> = {};
-        
-        for (const table of tables) {
-          const { error: tableError } = await supabaseAdmin.from(table).select("id").limit(1);
-          tableChecks[table] = !tableError;
-        }
-        
-        diagnostics.checks.tables = tableChecks;
-      } catch (err: any) {
-        diagnostics.checks.database = {
-          connected: false,
-          error: err?.message || "Unknown error",
-        };
-        diagnostics.status = "error";
-      }
-    } else {
-      diagnostics.checks.database = {
-        connected: false,
-        error: "Environment variables not set",
-      };
-      diagnostics.status = "warning";
+    if (!checks.env.healthy) {
+      overallStatus = "unhealthy";
     }
 
-    const statusCode = diagnostics.status === "ok" ? 200 : diagnostics.status === "warning" ? 200 : 500;
-    return NextResponse.json(diagnostics, { status: statusCode });
+    // Check database
+    const dbCheck = await DatabaseHealthCheck.check();
+    checks.database = {
+      healthy: dbCheck.healthy,
+      message: dbCheck.message,
+      latency: dbCheck.latency,
+      error: dbCheck.error,
+    };
+    if (!dbCheck.healthy) {
+      overallStatus = overallStatus === "healthy" ? "degraded" : "unhealthy";
+    }
+
+    // Check auth service
+    const authCheck = await AuthHealthCheck.check();
+    checks.auth = {
+      healthy: authCheck.healthy,
+      message: authCheck.message,
+      latency: authCheck.latency,
+      error: authCheck.error,
+    };
+    if (!authCheck.healthy) {
+      overallStatus = overallStatus === "healthy" ? "degraded" : "unhealthy";
+    }
+
+    // Check storage
+    const storageCheck = await StorageHealthCheck.check();
+    checks.storage = {
+      healthy: storageCheck.healthy,
+      message: storageCheck.message,
+      latency: storageCheck.latency,
+      error: storageCheck.error,
+    };
+    if (!storageCheck.healthy) {
+      overallStatus = overallStatus === "healthy" ? "degraded" : "unhealthy";
+    }
+
+    // Get metrics
+    let metrics = null;
+    try {
+      metrics = await TenantMetricsService.getMetrics();
+    } catch (metricsError) {
+      console.warn("Failed to fetch metrics:", metricsError);
+    }
+
+    const response = {
+      status: overallStatus,
+      timestamp: new Date().toISOString(),
+      checks,
+      ...(metrics && { metrics }),
+    };
+
+    const statusCode = overallStatus === "healthy" ? 200 : overallStatus === "degraded" ? 200 : 503;
+    return NextResponse.json(response, { status: statusCode });
   } catch (error: any) {
     console.error("HealthCheckError", {
       error: error?.message,
@@ -64,13 +88,13 @@ export async function GET() {
     
     return NextResponse.json(
       {
+        status: "unhealthy",
         timestamp: new Date().toISOString(),
-        status: "error",
         error: error?.message || "Unknown error",
         errorName: error?.name,
         stack: process.env.NODE_ENV === "development" ? error?.stack : undefined,
       },
-      { status: 500 }
+      { status: 503 }
     );
   }
 }

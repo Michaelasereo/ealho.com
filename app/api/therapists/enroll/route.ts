@@ -317,54 +317,8 @@ export async function POST(request: NextRequest) {
       // Continue - audit logging failure shouldn't block enrollment
     }
 
-    // Sign out the user so they can use the magic link
-    // This is necessary because magic links require the user to not be authenticated
-    try {
-      await supabase.auth.signOut();
-    } catch (signOutError: any) {
-      console.warn("Failed to sign out user after enrollment (non-critical):", {
-        error: signOutError?.message,
-      });
-      // Continue - we'll still send the magic link
-    }
-
-    // Send magic link via email using Supabase Admin API
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || request.headers.get("origin") || "http://localhost:3000";
-    const redirectTo = `${siteUrl}/auth/verify?redirect=/therapist-dashboard`;
-
-    try {
-      // Generate magic link using admin API
-      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: "magiclink",
-        email: user.email,
-        options: {
-          redirectTo: redirectTo,
-        },
-      });
-
-      if (linkError) {
-        console.error("Failed to generate magic link:", {
-          error: linkError.message,
-          timestamp: new Date().toISOString(),
-        });
-        // Don't fail enrollment if magic link generation fails
-        // We'll return success but note that email sending may have failed
-      } else {
-        // The magic link is automatically sent via email by Supabase
-        // The linkData contains the link, but Supabase sends it automatically
-        console.info("Magic link generated and sent:", {
-          email: user.email,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    } catch (magicLinkError: any) {
-      console.error("Error sending magic link:", {
-        error: magicLinkError?.message,
-        stack: magicLinkError?.stack,
-        timestamp: new Date().toISOString(),
-      });
-      // Don't fail enrollment if magic link sending fails
-    }
+    // User remains authenticated after enrollment - no sign out needed
+    // They will be redirected directly to the therapist dashboard
 
     return NextResponse.json(
       {
@@ -375,7 +329,7 @@ export async function POST(request: NextRequest) {
           name: user.name,
           role: user.role,
         },
-        message: "Enrollment successful. Please check your email for a magic link to access your dashboard.",
+        message: "Enrollment successful. Redirecting to your dashboard...",
       },
       { status: 200 }
     );

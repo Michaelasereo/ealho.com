@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       isOwnEventTypes = currentUser?.id === dietitianId && (currentUser?.role === "DIETITIAN" || currentUser?.role === "THERAPIST");
       console.log("EventTypes GET - Public access verified, isOwnEventTypes:", isOwnEventTypes);
     } else {
-      // Private access: dietitian fetching their own event types (requires auth)
+      // Private access: dietitian/therapist fetching their own event types (requires auth)
       console.log("EventTypes GET - Private access mode (no dietitianId param)");
       const currentUser = await getCurrentUserFromRequest(request);
       
@@ -77,14 +77,14 @@ export async function GET(request: NextRequest) {
           role: currentUser?.role 
         });
         return NextResponse.json(
-          { error: "Forbidden: Dietitian access required" },
+          { error: "Forbidden: Therapist or Dietitian access required" },
           { status: 403 }
         );
       }
       
       dietitianId = currentUser.id;
       isOwnEventTypes = true;
-      console.log("EventTypes GET - Private access verified for dietitian:", dietitianId);
+      console.log("EventTypes GET - Private access verified for", currentUser.role, ":", dietitianId);
     }
 
     // ✅ Use service layer for business logic
@@ -175,6 +175,7 @@ export async function GET(request: NextRequest) {
 // POST: Create new event type
 export async function POST(request: NextRequest) {
   try {
+    // requireDietitianFromRequest accepts both DIETITIAN and THERAPIST roles
     const dietitian = await requireDietitianFromRequest(request);
     const dietitianId = dietitian.id;
 

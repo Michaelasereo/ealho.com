@@ -31,7 +31,7 @@ export default async function RecurringBookingsPage() {
 
     if (userError || !user) {
       console.error("Recurring Bookings: User not found", userError);
-      redirect("/therapist-enrollment");
+      redirect("/therapist-signup");
     }
 
     if (user.role !== "THERAPIST") {

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { Button } from "@/components/ui/button";
 import { FillNotesModal } from "./FillNotesModal";
 import { ClientDetailsModal } from "./ClientDetailsModal";
+import { AIProcessingIndicator } from "@/components/session-notes/AIProcessingIndicator";
 import { FileText, Clock, Users } from "lucide-react";
 
 interface SessionNote {
@@ -31,6 +32,10 @@ interface SessionNote {
   created_at: string;
   updated_at: string;
   completed_at?: string;
+  transcription_status?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | null;
+  ai_processing_status?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | null;
+  therapist_reviewed?: boolean | null;
+  audio_recording_url?: string | null;
   bookings?: {
     id: string;
     title: string;
@@ -177,9 +182,20 @@ export default function SessionNotesPageClient({
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h3 className="text-[#f9fafb] font-medium mb-2">
-                          {note.client_name}
-                        </h3>
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-[#f9fafb] font-medium">
+                            {note.client_name}
+                          </h3>
+                          {(note.transcription_status || note.ai_processing_status) && (
+                            <AIProcessingIndicator
+                              transcriptionStatus={note.transcription_status || undefined}
+                              aiProcessingStatus={note.ai_processing_status || undefined}
+                              therapistReviewed={note.therapist_reviewed || false}
+                              compact={true}
+                              showLabels={true}
+                            />
+                          )}
+                        </div>
                         <div className="space-y-1 text-sm text-[#9ca3af]">
                           <p>
                             Session {note.session_number} • {formatDate(note.session_date)} •{" "}
@@ -193,8 +209,14 @@ export default function SessionNotesPageClient({
                       <Button
                         onClick={() => handleFillNotes(note)}
                         className="bg-white hover:bg-gray-100 text-black px-4 py-2 text-sm font-medium"
+                        disabled={
+                          note.ai_processing_status === "PROCESSING" ||
+                          note.transcription_status === "PROCESSING"
+                        }
                       >
-                        Fill Notes
+                        {note.ai_processing_status === "COMPLETED" && !note.therapist_reviewed
+                          ? "Review Notes"
+                          : "Fill Notes"}
                       </Button>
                     </div>
                   </div>

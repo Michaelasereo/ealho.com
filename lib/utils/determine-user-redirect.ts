@@ -5,8 +5,15 @@ import { getRedirectPathForRole, getAccountStatusRedirect, normalizeRole, getUse
  * Determine where to redirect user after authentication
  * Handles role-based redirects and account status checks
  * Uses retry logic to handle race conditions
+ * @param userId - User ID from auth
+ * @param source - Source parameter from OAuth callback (e.g., "therapy-signup", "therapist-login")
+ * @param signupSource - Signup source from database (e.g., "therapy")
  */
-export async function determineUserRedirect(userId: string): Promise<string> {
+export async function determineUserRedirect(
+  userId: string,
+  source?: string,
+  signupSource?: string
+): Promise<string> {
   try {
     const supabaseAdmin = createAdminClient();
 
@@ -20,12 +27,32 @@ export async function determineUserRedirect(userId: string): Promise<string> {
     );
 
     if (roleError === "User role not found") {
-      // User doesn't exist in database - redirect to enrollment
+      // User doesn't exist in database - redirect based on source
       console.info("DetermineRedirectUserNotFound", {
         userId,
+        source,
+        signupSource,
         timestamp: new Date().toISOString(),
       });
-      return "/dietitian-enrollment";
+      
+      // Determine redirect based on source
+      if (source === "therapy-signup" || source === "therapy-login" || signupSource === "therapy") {
+        // User from therapy homepage should go to user-dashboard (will create USER account)
+        return "/user-dashboard";
+      } else if (source === "therapist-login") {
+        // Therapist login should go to therapist signup (for new users) or enrollment (for existing)
+        // The auth callback will handle the proper redirect
+        return "/therapist-signup";
+      } else if (source === "dietitian-login") {
+        // Dietitian login should go to dietitian enrollment
+        return "/dietitian-enrollment";
+      } else if (source === "admin-login") {
+        // Admin login - check if admin email, otherwise user-dashboard
+        return "/admin";
+      } else {
+        // Default: regular signup goes to user-dashboard
+        return "/user-dashboard";
+      }
     }
 
     if (roleError || !userRole) {
@@ -52,13 +79,25 @@ export async function determineUserRedirect(userId: string): Promise<string> {
       } catch (directError) {
         console.error("Direct user query also failed:", directError);
       }
-      // Last resort: log error but don't guess - redirect to enrollment for safety
+      // Last resort: log error but don't guess - redirect based on source
       console.error("DetermineRedirectFailed", {
         userId,
         roleError,
+        source,
+        signupSource,
         timestamp: new Date().toISOString(),
       });
-      return "/dietitian-enrollment"; // Safer default - user can complete enrollment
+      
+      // Use source to determine redirect
+      if (source === "therapy-signup" || source === "therapy-login" || signupSource === "therapy") {
+        return "/user-dashboard";
+      } else if (source === "therapist-login") {
+        return "/therapist-signup";
+      } else if (source === "dietitian-login") {
+        return "/dietitian-enrollment";
+      } else {
+        return "/user-dashboard"; // Default to user-dashboard for regular users
+      }
     }
 
     // Fetch full user data to check account status
@@ -114,8 +153,16 @@ export async function determineUserRedirect(userId: string): Promise<string> {
     } catch (emergencyError) {
       console.error("Emergency role fetch also failed:", emergencyError);
     }
-    // Last resort: redirect to enrollment instead of assuming user role
-    return "/dietitian-enrollment";
+    // Last resort: redirect based on source
+    if (source === "therapy-signup" || source === "therapy-login" || signupSource === "therapy") {
+      return "/user-dashboard";
+    } else if (source === "therapist-login") {
+      return "/therapist-signup";
+    } else if (source === "dietitian-login") {
+      return "/dietitian-enrollment";
+    } else {
+      return "/user-dashboard"; // Default to user-dashboard for regular users
+    }
   }
 }
 

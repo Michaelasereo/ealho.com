@@ -217,9 +217,24 @@ export async function getCurrentUserFromRequest(request: Request | NextRequest):
     
     const isPublicBooking = url.pathname.includes('/Dietitian/') || url.pathname.includes('/api/bookings');
     
-    // Use the proper server client from @supabase/ssr
-    // This automatically handles cookies from Next.js cookie store
-    const supabase = await createClient();
+    // Check if this is an API route request (has cookie header) vs server component
+    // API routes need to use route handler client, server components use cookie store
+    let supabase;
+    const isApiRoute = url.pathname.startsWith('/api/');
+    
+    // Check if we can get cookies from request headers (API route) vs cookie store (server component)
+    const cookieHeader = request.headers?.get?.("cookie") || 
+                         (request as any).headers?.get?.("cookie") || 
+                         "";
+    
+    if (isApiRoute && cookieHeader) {
+      // For API routes, use route handler client that reads from request headers
+      const { createRouteHandlerClientFromRequest } = await import("@/lib/supabase/server");
+      supabase = createRouteHandlerClientFromRequest(cookieHeader);
+    } else {
+      // For server components, use the cookie store client
+      supabase = await createClient();
+    }
     
     // First, try to get real authenticated user
     const {
@@ -227,40 +242,28 @@ export async function getCurrentUserFromRequest(request: Request | NextRequest):
       error: authError,
     } = await supabase.auth.getUser();
 
-    // If we have a real authenticated user, use it (skip dev mode)
+    // Use real authenticated user only - no dev mode fallback
     if (!authError && authUser) {
-      console.log('[AUTH] Using real authenticated user:', authUser.email);
+      console.log('[AUTH] Using real authenticated user:', {
+        email: authUser.email,
+        id: authUser.id,
+        pathname: url.pathname,
+        isApiRoute,
+        hasCookieHeader: !!cookieHeader,
+      });
       // Continue with real auth flow below - use authUser as finalAuthUser
     } else {
-      // No real auth user - check if we should use dev mode
-      // Skip dev mode for public booking routes (they need real auth)
-      if (!isPublicBooking) {
-        const devUser = getDevUser(request);
-        if (devUser) {
-          // Verify dev user exists in database
-          const supabaseAdmin = createAdminClientServer();
-          const { data: existingDevUser } = await supabaseAdmin
-            .from("users")
-            .select("*")
-            .eq("id", devUser.id)
-            .single();
-
-          if (existingDevUser) {
-            console.log('[DEV MODE] Using hardcoded user:', devUser.email, devUser.role);
-            return devUser;
-          } else {
-            console.warn('[DEV MODE] Dev user does not exist in database, skipping dev mode');
-          }
-        }
-      }
-
-      // No dev user and no real auth - return null
+      // No real auth user - return null (require real authentication)
       if (authError || !authUser) {
         console.warn("getCurrentUserFromRequest: Auth error or no user", {
           error: authError?.message,
           errorCode: authError?.status,
           hasUser: !!authUser,
           url: request.url,
+          pathname: url.pathname,
+          isApiRoute,
+          hasCookieHeader: !!cookieHeader,
+          cookieHeaderLength: cookieHeader?.length || 0,
           isPublicBooking,
         });
         return null;
@@ -281,31 +284,157 @@ export async function getCurrentUserFromRequest(request: Request | NextRequest):
     // Determine target role based on route context
     const pathname = url.pathname;
     let targetRole: string | null = null;
-    if (pathname.startsWith("/dashboard") && !pathname.startsWith("/therapist-dashboard")) {
-      targetRole = "DIETITIAN";
-    } else if (pathname.startsWith("/therapist-dashboard")) {
-      targetRole = "THERAPIST";
-    } else if (pathname.startsWith("/user-dashboard")) {
-      targetRole = "USER";
+    
+    // For non-API routes, determine role from pathname
+    if (!isApiRoute) {
+      if (pathname.startsWith("/dashboard") && !pathname.startsWith("/therapist-dashboard")) {
+        targetRole = "DIETITIAN";
+      } else if (pathname.startsWith("/therapist-dashboard")) {
+        targetRole = "THERAPIST";
+      } else if (pathname.startsWith("/user-dashboard")) {
+        targetRole = "USER";
+      }
+    } else {
+      // For API routes, check referer header first, then pathname hints
+      const referer = request.headers?.get?.("referer") || 
+                     (request as any).headers?.get?.("referer") || 
+                     "";
+      
+      // Check referer for dashboard context (most reliable)
+      if (referer.includes("/therapist-dashboard")) {
+        targetRole = "THERAPIST";
+      } else if (referer.includes("/dashboard") && !referer.includes("/therapist-dashboard")) {
+        targetRole = "DIETITIAN";
+      } else if (referer.includes("/user-dashboard")) {
+        targetRole = "USER";
+      }
+      
+      // If no referer hint, check pathname for hints (e.g., /api/therapist-* routes)
+      if (!targetRole) {
+        if (pathname.includes("/therapist") || pathname.includes("therapist")) {
+          targetRole = "THERAPIST";
+        } else if (pathname.includes("/dietitian") || pathname.includes("dietitian")) {
+          targetRole = "DIETITIAN";
+        }
+      }
     }
 
     const supabaseAdmin = createAdminClientServer();
     let user = null;
     let error = null;
 
-    // If we have a target role, look up by (auth_user_id, role)
+    // If we have a target role, try UnifiedUserSystem first (most reliable)
     if (targetRole) {
-      const { data: userByAuthIdRole, error: errorByAuthIdRole } = await supabaseAdmin
-        .from("users")
-        .select("*")
-        .eq("auth_user_id", finalAuthUser.id)
-        .eq("role", targetRole)
-        .maybeSingle();
-
-      if (!errorByAuthIdRole && userByAuthIdRole) {
-        user = userByAuthIdRole;
+      const { UnifiedUserSystem } = await import("@/lib/auth/unified-user-system");
+      const { user: unifiedUser, error: unifiedError } = await UnifiedUserSystem.getUser(
+        finalAuthUser.id,
+        targetRole as any,
+        supabaseAdmin
+      );
+      
+      if (!unifiedError && unifiedUser) {
+        user = unifiedUser;
+        console.log('[AUTH] Found user via UnifiedUserSystem:', {
+          userId: user.id,
+          role: user.role,
+          targetRole,
+          pathname,
+        });
       } else {
-        error = errorByAuthIdRole;
+        // Fallback to direct query if UnifiedUserSystem fails
+        const { data: userByAuthIdRole, error: errorByAuthIdRole } = await supabaseAdmin
+          .from("users")
+          .select("*")
+          .eq("auth_user_id", finalAuthUser.id)
+          .eq("role", targetRole)
+          .maybeSingle();
+
+        if (!errorByAuthIdRole && userByAuthIdRole) {
+          user = userByAuthIdRole;
+          console.log('[AUTH] Found user via direct query:', {
+            userId: user.id,
+            role: user.role,
+            targetRole,
+            pathname,
+          });
+        } else {
+          error = errorByAuthIdRole || unifiedError;
+        }
+      }
+    }
+
+    // For API routes, if we haven't found a user yet, try both DIETITIAN and THERAPIST
+    // (many API routes support both roles, and referer header may not be reliable)
+    if (!user && isApiRoute) {
+      console.log('[AUTH] API route - trying to find user for auth_user_id:', finalAuthUser.id);
+      const referer = request.headers?.get?.("referer") || 
+                     (request as any).headers?.get?.("referer") || 
+                     "";
+      const preferTherapist = referer.includes("/therapist-dashboard");
+      console.log('[AUTH] API route - referer:', referer, 'preferTherapist:', preferTherapist);
+      
+      const { UnifiedUserSystem } = await import("@/lib/auth/unified-user-system");
+      
+      // Try THERAPIST first if preferTherapist, otherwise try both
+      const rolesToTry = preferTherapist ? ["THERAPIST", "DIETITIAN"] : ["DIETITIAN", "THERAPIST"];
+      
+      for (const role of rolesToTry) {
+        if (user) break; // Found user, stop trying
+        
+        console.log(`[AUTH] Trying ${role} role lookup via UnifiedUserSystem...`);
+        const { user: roleUser, error: roleError } = await UnifiedUserSystem.getUser(
+          finalAuthUser.id,
+          role as any,
+          supabaseAdmin
+        );
+
+        if (!roleError && roleUser) {
+          console.log(`[AUTH] Found ${role} user via UnifiedUserSystem:`, roleUser.id);
+          user = roleUser;
+          targetRole = role;
+          break;
+        } else {
+          console.log(`[AUTH] ${role} lookup via UnifiedUserSystem failed:`, roleError?.message);
+          
+          // Fallback: try direct query by auth_user_id
+          const { data: directUser, error: directError } = await supabaseAdmin
+            .from("users")
+            .select("*")
+            .eq("auth_user_id", finalAuthUser.id)
+            .eq("role", role)
+            .maybeSingle();
+
+          if (!directError && directUser) {
+            console.log(`[AUTH] Found ${role} user via direct query (auth_user_id):`, directUser.id);
+            user = directUser;
+            targetRole = role;
+            break;
+          } else {
+            // Final fallback: try by id (for backward compatibility)
+            const { data: userById, error: errorById } = await supabaseAdmin
+              .from("users")
+              .select("*")
+              .eq("id", finalAuthUser.id)
+              .eq("role", role)
+              .maybeSingle();
+
+            if (!errorById && userById) {
+              console.log(`[AUTH] Found ${role} user via direct query (id):`, userById.id);
+              user = userById;
+              targetRole = role;
+              break;
+            }
+          }
+        }
+      }
+      
+      if (!user) {
+        console.warn('[AUTH] API route - No user found after trying both roles', {
+          authUserId: finalAuthUser.id,
+          authUserEmail: finalAuthUser.email,
+          pathname: url.pathname,
+          referer,
+        });
       }
     }
 
@@ -498,7 +627,7 @@ export async function getUserRole(userId: string): Promise<"USER" | "DIETITIAN" 
 /**
  * Require authentication from request - returns user or throws error
  */
-export async function requireAuthFromRequest(request: Request): Promise<User> {
+export async function requireAuthFromRequest(request: Request | NextRequest): Promise<User> {
   const user = await getCurrentUserFromRequest(request);
   if (!user) {
     const error = new Error("Unauthorized: Authentication required");
@@ -516,6 +645,20 @@ export async function requireDietitianFromRequest(request: Request): Promise<Use
   const user = await requireAuthFromRequest(request);
   if (user.role !== "DIETITIAN" && user.role !== "THERAPIST") {
     const error = new Error("Forbidden: Therapist or Dietitian access required");
+    (error as any).status = 403;
+    throw error;
+  }
+  return user;
+}
+
+/**
+ * Require therapist role from request - returns user or throws error
+ * This function is used for routes that only therapists can access
+ */
+export async function requireTherapistFromRequest(request: Request | NextRequest): Promise<User> {
+  const user = await requireAuthFromRequest(request);
+  if (user.role !== "THERAPIST") {
+    const error = new Error("Forbidden: Therapist access required");
     (error as any).status = 403;
     throw error;
   }

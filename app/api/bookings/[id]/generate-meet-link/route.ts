@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClientServer } from "@/lib/supabase/server";
 import { getCurrentUserFromRequest } from "@/lib/auth-helpers";
-import { createCalendarEventWithMeet } from "@/lib/google-calendar";
+import { createDailyRoom } from "@/lib/daily-co";
 
 /**
  * POST /api/bookings/[id]/generate-meet-link
- * Generates a Google Meet link for an existing booking that doesn't have one.
+ * Generates a Daily.co room link for an existing booking that doesn't have one.
  * Can be called by the dietitian or admin to retroactively create meeting links.
  */
 export async function POST(
@@ -71,43 +71,33 @@ export async function POST(
       );
     }
 
-    // Generate Google Meet link via calendar event (with attendee emails)
+    // Generate Daily.co room link
     let meetLink = "";
-    const attendeeEmails = [
-      booking.user?.email,
-      booking.dietitian?.email,
-    ].filter(Boolean) as string[];
-
+    
     try {
-      const { meetLink: link } = await createCalendarEventWithMeet(
-        booking.dietitian_id,
-        {
-          summary: booking.title || "Consultation Session",
-          description: booking.description || "",
-          startTime: booking.start_time,
-          endTime: booking.end_time,
-          attendeeEmails,
-        }
-      );
-      meetLink = link;
-    } catch (error: any) {
-      console.error("Failed to create Google Meet link:", error);
+      // Create a Daily.co room with expiration 24 hours after booking end time
+      const bookingEndTime = new Date(booking.end_time);
+      const expirationTime = Math.floor(bookingEndTime.getTime() / 1000) + 24 * 60 * 60; // 24 hours after booking ends
       
-      // Check if it's a token issue
-      if (error.message?.includes("OAuth tokens not found")) {
-        return NextResponse.json(
-          { 
-            error: "Dietitian has not connected their Google Calendar. Please connect Google Calendar in settings first.",
-            details: error.message 
-          },
-          { status: 400 }
-        );
-      }
-
+      const room = await createDailyRoom({
+        name: `booking-${booking.id.substring(0, 8)}`,
+        privacy: "private",
+        properties: {
+          exp: expirationTime,
+          enable_chat: true,
+          enable_screenshare: true,
+          max_participants: 10,
+        },
+      });
+      
+      meetLink = room.url;
+    } catch (error: any) {
+      console.error("Failed to create Daily.co room:", error);
+      
       return NextResponse.json(
         { 
-          error: "Failed to create Google Meet link",
-          details: error.message 
+          error: "Failed to create video room",
+          details: error.message || "Unable to create Daily.co room. Please check API configuration."
         },
         { status: 500 }
       );

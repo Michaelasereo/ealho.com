@@ -3,17 +3,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
-import { createGoogleMeetLinkOnly } from "@/lib/google-calendar";
+import { createDailyRoom } from "@/lib/daily-co";
 import { emailQueue } from "@/lib/email/queue";
 import dayjs from "dayjs";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
-// Fallback function if Google Calendar API fails
-function generateFallbackMeetLink(reference: string) {
-  const slug = reference.slice(-8);
-  return `https://meet.google.com/${slug}`;
-}
 
 export async function POST(request: NextRequest) {
   if (!PAYSTACK_SECRET_KEY) {
@@ -85,20 +80,27 @@ export async function POST(request: NextRequest) {
 
         let meetLink = "";
 
-        // Try to create Google Meet link (minimal calendar event, no attendees)
+        // Create Daily.co room for the booking
         try {
-          meetLink = await createGoogleMeetLinkOnly(
-            booking.dietitian_id,
-            {
-              summary: booking.title || "Consultation Session",
-              startTime: booking.start_time,
-              endTime: booking.end_time,
-            }
-          );
+          const bookingEndTime = new Date(booking.end_time);
+          const expirationTime = Math.floor(bookingEndTime.getTime() / 1000) + 24 * 60 * 60; // 24 hours after booking ends
+          
+          const room = await createDailyRoom({
+            name: `booking-${booking.id.substring(0, 8)}`,
+            privacy: "private",
+            properties: {
+              exp: expirationTime,
+              enable_chat: true,
+              enable_screenshare: true,
+              max_participants: 10,
+            },
+          });
+          
+          meetLink = room.url;
         } catch (error) {
-          console.error("Failed to create Google Meet link:", error);
-          // Fallback to placeholder Meet link
-          meetLink = generateFallbackMeetLink(reference);
+          console.error("Failed to create Daily.co room:", error);
+          // Return error - no fallback for Daily.co
+          console.error("Booking confirmed but video room creation failed:", error);
         }
 
         const { error: bookingErr } = await supabaseAdmin

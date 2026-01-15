@@ -2,10 +2,54 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClientServer } from "@/lib/supabase/server";
 import { requireDietitianFromRequest } from "@/lib/auth-helpers";
 
-// GET: Fetch meal plans for the dietitian
+// GET: Fetch meal plans for the dietitian/therapist
 export async function GET(request: NextRequest) {
   try {
-    const dietitian = await requireDietitianFromRequest(request);
+    let dietitian;
+    try {
+      // requireDietitianFromRequest accepts both DIETITIAN and THERAPIST roles
+      dietitian = await requireDietitianFromRequest(request);
+      console.log("MealPlans GET - Authenticated dietitian/therapist:", dietitian.id, dietitian.role);
+    } catch (authError: any) {
+      // In dev mode, try to get dev user
+      if (process.env.NODE_ENV === 'development') {
+        const { getCurrentUserFromRequest } = await import("@/lib/auth-helpers");
+        const devUser = await getCurrentUserFromRequest(request);
+        if (devUser && (devUser.role === 'DIETITIAN' || devUser.role === 'THERAPIST')) {
+          dietitian = devUser;
+          console.log("MealPlans GET - Using dev dietitian/therapist:", dietitian.id, dietitian.role);
+        } else {
+          console.error("MealPlans GET - Authentication error", {
+            error: authError?.message,
+            status: authError?.status,
+            url: request.url,
+          });
+          const statusCode = authError?.status || (authError?.message?.includes("Unauthorized") ? 401 : 403);
+          return NextResponse.json(
+            { 
+              error: authError?.message || "Authentication failed",
+              details: authError?.message 
+            },
+            { status: statusCode }
+          );
+        }
+      } else {
+        console.error("MealPlans GET - Authentication error", {
+          error: authError?.message,
+          status: authError?.status,
+          url: request.url,
+        });
+        const statusCode = authError?.status || (authError?.message?.includes("Unauthorized") ? 401 : 403);
+        return NextResponse.json(
+          { 
+            error: authError?.message || "Authentication failed",
+            details: authError?.message 
+          },
+          { status: statusCode }
+        );
+      }
+    }
+    
     const dietitianId = dietitian.id;
 
     const supabaseAdmin = createAdminClientServer();
@@ -77,6 +121,7 @@ export async function GET(request: NextRequest) {
 // POST: Create/send a meal plan
 export async function POST(request: NextRequest) {
   try {
+    // requireDietitianFromRequest accepts both DIETITIAN and THERAPIST roles
     const dietitian = await requireDietitianFromRequest(request);
     const dietitianId = dietitian.id;
 

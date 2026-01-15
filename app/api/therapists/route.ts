@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const supabaseAdmin = createAdminClientServer();
 
-    // Fetch all active therapists (or all therapists if account_status is not set)
+    // Fetch all active therapists who have completed onboarding
     const { data: therapists, error } = await supabaseAdmin
       .from("users")
       .select(`
@@ -25,9 +25,11 @@ export async function GET(request: NextRequest) {
         bio,
         image,
         role,
-        account_status
+        account_status,
+        metadata
       `)
       .eq("role", "THERAPIST")
+      .eq("onboarding_completed", true) // Only show therapists who completed onboarding
       .or("account_status.eq.ACTIVE,account_status.is.null") // Include ACTIVE or null account_status
       .order("name", { ascending: true });
 
@@ -40,15 +42,21 @@ export async function GET(request: NextRequest) {
     }
 
     // Format the response
-    const formattedTherapists = (therapists || []).map((therapist: any) => ({
-      id: therapist.id,
-      name: therapist.name || "Therapist",
-      email: therapist.email,
-      bio: therapist.bio || "",
-      image: therapist.image,
-      qualification: "Licensed Therapist",
-      description: therapist.bio || "Professional therapist ready to help you achieve your mental health goals.",
-    }));
+    const formattedTherapists = (therapists || []).map((therapist: any) => {
+      const metadata = therapist.metadata || {};
+      return {
+        id: therapist.id,
+        name: therapist.name || "Therapist",
+        email: therapist.email,
+        bio: therapist.bio || "",
+        image: therapist.image,
+        qualification: "Licensed Therapist",
+        description: therapist.bio || "Professional therapist ready to help you achieve your mental health goals.",
+        specialization: metadata.specialization || [],
+        experience: metadata.experience || "",
+        licenseNumber: metadata.licenseNumber || "",
+      };
+    });
 
     return NextResponse.json({ therapists: formattedTherapists });
   } catch (error: any) {

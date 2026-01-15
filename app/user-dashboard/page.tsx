@@ -83,6 +83,30 @@ export default function UserDashboardPage() {
   const totalSessions = bookings.filter((b) => b.status === "CONFIRMED").length;
   const upcomingMeetings = upcomingBookings.length;
 
+  // Handle booking cancellation
+  const handleCancelBooking = async (bookingId: string) => {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ status: "CANCELLED" }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.details || "Failed to cancel booking");
+      }
+
+      // Bookings will automatically update via SSE stream
+    } catch (error: any) {
+      console.error("Error canceling booking:", error);
+      throw error; // Re-throw to let the modal handle the error
+    }
+  };
+
   useEffect(() => {
     fetchSessionRequests();
     fetchMealPlansCount();
@@ -400,7 +424,11 @@ export default function UserDashboardPage() {
           </div>
 
           {/* Bookings List */}
-          <BookingsList bookings={upcomingBookings.slice(0, 5)} type="upcoming" />
+          <BookingsList 
+            bookings={upcomingBookings.slice(0, 5)} 
+            type="upcoming" 
+            onCancel={handleCancelBooking}
+          />
         </div>
       </main>
 

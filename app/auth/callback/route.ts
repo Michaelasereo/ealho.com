@@ -6,6 +6,8 @@ import { determineUserRedirect } from "@/lib/utils/determine-user-redirect";
 import { getUserRoleWithRetry, normalizeRole } from "@/lib/utils/auth-utils";
 import { ADMIN_EMAIL } from "@/lib/auth/config";
 import { randomUUID } from "crypto";
+import { AuditLogger } from "@/lib/audit/logger";
+import { EventBus } from "@/lib/events/event-bus";
 
 export const dynamic = "force-dynamic";
 
@@ -148,7 +150,10 @@ export async function GET(request: NextRequest) {
     const source = requestUrl.searchParams.get("source");
     const cameFromDietitianLogin = source === "dietitian-login";
     const cameFromDietitianEnrollment = source === "dietitian-enrollment";
+    const cameFromTherapistLogin = source === "therapist-login";
     const cameFromTherapistEnrollment = source === "therapist-enrollment";
+    const cameFromTherapistSignup = source === "therapist-signup";
+    const cameFromAdminLogin = source === "admin-login";
     const cameFromPublicBooking = source === "public-booking";
     const cameFromTherapyBooking = source === "therapy-booking";
     const redirectPath = requestUrl.searchParams.get("redirect");
@@ -167,8 +172,13 @@ export async function GET(request: NextRequest) {
       targetRole = "DIETITIAN";
     } else if (cameFromTherapistEnrollment) {
       targetRole = "THERAPIST";
+    } else if (cameFromTherapistSignup) {
+      targetRole = "THERAPIST";
     } else if (cameFromDietitianLogin) {
       targetRole = "DIETITIAN";
+    } else if (cameFromTherapistLogin) {
+      // Therapist login should create USER role initially (they'll complete enrollment form)
+      targetRole = null; // Will default to USER
     }
 
     // If we have a target role, check for existing account with (email, role)
@@ -225,12 +235,15 @@ export async function GET(request: NextRequest) {
         // If we have a target role and the found user doesn't match, we need to create a new account
         if (targetRole && fetchedUserByAuthId.role !== targetRole) {
           // User exists with different role - will create new account below
+          // Don't set dbUser so it creates a new account with targetRole
           console.info("AuthCallbackUserExistsWithDifferentRole", {
             userId: user.id,
             existingRole: fetchedUserByAuthId.role,
             targetRole,
             timestamp: new Date().toISOString(),
           });
+          // Explicitly set dbUser to null to force creation of new account
+          dbUser = null;
         } else {
           dbUser = fetchedUserByAuthId;
         }
@@ -299,6 +312,18 @@ export async function GET(request: NextRequest) {
         isAdminEmail,
         timestamp: new Date().toISOString(),
       });
+
+      // Audit log: User login
+      await AuditLogger.logLogin(
+        dbUser.id,
+        "google_oauth",
+        {
+          source,
+          role: dbUser.role,
+          isAdminEmail,
+        },
+        request
+      );
     }
 
     // If user doesn't exist, create new user
@@ -315,6 +340,10 @@ export async function GET(request: NextRequest) {
       // This allows same email to have multiple accounts with different roles
       const newUserId = randomUUID();
       
+      // Set onboarding_completed based on source
+      // If coming from enrollment pages or signup pages, user needs to complete onboarding
+      const needsOnboarding = cameFromDietitianEnrollment || cameFromTherapistEnrollment || cameFromTherapistSignup;
+      
       const { data: newUser, error: createError } = await supabaseAdmin
         .from("users")
         .insert({
@@ -324,10 +353,11 @@ export async function GET(request: NextRequest) {
           name: userMetadata?.name || userMetadata?.full_name || user.email!.split("@")[0],
           image: googleImage,
           role: initialRole,
-          account_status: "ACTIVE",
+          account_status: "ACTIVE", // Keep as ACTIVE, use onboarding_completed flag instead
           email_verified: user.email_confirmed_at || null,
           last_sign_in_at: new Date().toISOString(),
           signup_source: signupSource,
+          onboarding_completed: !needsOnboarding, // Set to false if coming from enrollment
           metadata: {
             provider: userMetadata?.provider || "google",
             provider_id: userMetadata?.provider_id,
@@ -384,14 +414,39 @@ export async function GET(request: NextRequest) {
       } else if (newUser) {
         createdUser = newUser;
         dbUser = newUser;
-        console.info("AuthCallbackUserCreated", {
-          authUserId: user.id,
-          dbUserId: newUser.id,
+      console.info("AuthCallbackUserCreated", {
+        authUserId: user.id,
+        dbUserId: newUser.id,
+        role: newUser.role,
+        email: newUser.email,
+        source: cameFromDietitianEnrollment ? "dietitian-enrollment" : cameFromTherapistEnrollment ? "therapist-enrollment" : "regular",
+        timestamp: new Date().toISOString(),
+      });
+
+      // Audit log: User created
+      await AuditLogger.logUserCreated(
+        newUser.id,
+        newUser.role,
+        {
+          source: cameFromDietitianEnrollment ? "dietitian-enrollment" : cameFromTherapistEnrollment ? "therapist-enrollment" : cameFromTherapistSignup ? "therapist-signup" : "regular",
+          email: newUser.email,
+          onboarding_completed: newUser.onboarding_completed,
+        },
+        request
+      );
+
+      // Publish event: User created
+      await EventBus.publish(
+        "USER_CREATED",
+        newUser.id,
+        {
           role: newUser.role,
           email: newUser.email,
-          source: cameFromDietitianEnrollment ? "dietitian-enrollment" : cameFromTherapistEnrollment ? "therapist-enrollment" : "regular",
-          timestamp: new Date().toISOString(),
-        });
+          source: cameFromDietitianEnrollment ? "dietitian-enrollment" : cameFromTherapistEnrollment ? "therapist-enrollment" : cameFromTherapistSignup ? "therapist-signup" : "regular",
+          onboarding_completed: newUser.onboarding_completed,
+        },
+        newUser.id
+      );
       }
     }
 
@@ -512,10 +567,27 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    // Handle therapist enrollment flow
+    // Handle therapist signup flow (new get started page)
+    if (cameFromTherapistSignup) {
+      // Always redirect to dashboard - OnboardingWrapper will handle modal display
+      // The dashboard layout checks onboarding_completed and shows the modal if needed
+      console.info("AuthCallbackTherapistSignup", {
+        userId: user.id,
+        role: finalRole,
+        onboardingCompleted: dbUser?.onboarding_completed,
+        source,
+        timestamp: new Date().toISOString(),
+      });
+      const redirectTo = "/therapist-dashboard";
+      const response = NextResponse.redirect(new URL(redirectTo, siteOrigin));
+      response.headers.set("X-Auth-Status", "success");
+      return response;
+    }
+
+    // Handle therapist enrollment flow (legacy - for backward compatibility)
     if (cameFromTherapistEnrollment) {
-      if (finalRole === "THERAPIST") {
-        // User is already enrolled as THERAPIST, redirect to dashboard
+      if (finalRole === "THERAPIST" && dbUser?.onboarding_completed) {
+        // User is already enrolled as THERAPIST and completed onboarding, redirect to dashboard
         console.info("AuthCallbackTherapistEnrollmentAlreadyEnrolled", {
           userId: user.id,
           role: finalRole,
@@ -527,8 +599,8 @@ export async function GET(request: NextRequest) {
         response.headers.set("X-Auth-Status", "success");
         return response;
       } else {
-        // User came from therapist enrollment but doesn't have THERAPIST role yet
-        // Redirect back to enrollment page so they can complete the form
+        // User came from therapist enrollment but doesn't have THERAPIST role yet or hasn't completed onboarding
+        // Redirect to enrollment page with connected=true to show enrollment form
         console.info("AuthCallbackTherapistEnrollmentIncomplete", {
           userId: user.id,
           role: finalRole,
@@ -576,6 +648,67 @@ export async function GET(request: NextRequest) {
       response.headers.set("Pragma", "no-cache");
       response.headers.set("Expires", "0");
       return response;
+    }
+
+    // If came from therapist-login and user is not enrolled (not THERAPIST), redirect to signup
+    if (cameFromTherapistLogin && finalRole !== "THERAPIST") {
+      console.info("AuthCallbackTherapistLoginNotEnrolled", {
+        userId: user.id,
+        role: finalRole,
+        source,
+        timestamp: new Date().toISOString(),
+      });
+      const redirectTo = "/therapist-signup";
+      const response = NextResponse.redirect(new URL(redirectTo, siteOrigin));
+      response.headers.set("X-Auth-Status", "success");
+      return response;
+    }
+
+    // If came from therapist-login and user IS a THERAPIST, redirect to dashboard immediately
+    // This prevents race conditions with determineUserRedirect
+    if (cameFromTherapistLogin && finalRole === "THERAPIST") {
+      console.info("AuthCallbackTherapistLoginSuccess", {
+        userId: user.id,
+        role: finalRole,
+        source,
+        timestamp: new Date().toISOString(),
+      });
+      const redirectTo = "/therapist-dashboard";
+      const response = NextResponse.redirect(new URL(redirectTo, siteOrigin));
+      response.headers.set("X-Auth-Status", "success");
+      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+      response.headers.set(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+      );
+      response.headers.set("Pragma", "no-cache");
+      response.headers.set("Expires", "0");
+      return response;
+    }
+
+    // If came from admin-login, check if user is ADMIN
+    if (cameFromAdminLogin) {
+      if (finalRole === "ADMIN") {
+        console.info("AuthCallbackAdminLoginSuccess", {
+          userId: user.id,
+          role: finalRole,
+          source,
+          timestamp: new Date().toISOString(),
+        });
+        const redirectTo = "/admin";
+        const response = NextResponse.redirect(new URL(redirectTo, siteOrigin));
+        response.headers.set("X-Auth-Status", "success");
+        return response;
+      } else {
+        // Not admin, redirect to appropriate dashboard based on role
+        console.info("AuthCallbackAdminLoginNotAdmin", {
+          userId: user.id,
+          role: finalRole,
+          source,
+          timestamp: new Date().toISOString(),
+        });
+        // Will fall through to role-based redirect below
+      }
     }
     
     // Otherwise, use normal redirect logic (handles DIETITIAN, THERAPIST, ADMIN, and USER roles correctly)
@@ -625,7 +758,7 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    const redirectTo = await determineUserRedirect(user.id);
+    const redirectTo = await determineUserRedirect(user.id, source || undefined, signupSource || undefined);
 
     console.info("AuthCallbackSuccess", {
       userId: user.id,

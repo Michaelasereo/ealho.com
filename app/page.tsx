@@ -91,11 +91,11 @@ export default function HomePage() {
         <div className="container mx-auto px-6 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             <Image
-              src="/daiyet logo.svg"
+              src="/daiyet%20logo.svg"
               alt="Daiyet"
               width={120}
               height={32}
-              className="h-7 sm:h-8 w-auto"
+              className="h-7 sm:h-8 w-auto object-contain"
               priority
               onError={(e) => {
                 console.error('🖼️ [HomePage] Logo image failed to load');

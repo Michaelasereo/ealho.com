@@ -22,26 +22,27 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Get effective user ID (real user or dev mode fallback)
-  const effectiveUserId = user?.id || (isDev ? DEV_THERAPIST_ID : null);
-
-  // Fetch profile on mount
+  // Fetch profile on mount using API endpoint (more reliable)
   useEffect(() => {
     const loadProfile = async () => {
-      if (!effectiveUserId) return;
-      
       setLoading(true);
       try {
-        // SINGLE SERVICE CALL - gets everything from database
-        // Add a timeout so the page can't get stuck on "Loading profile..."
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Profile fetch timed out")), 10000)
-        );
-        const data = await Promise.race([
-          therapistService.getTherapistProfile(effectiveUserId),
-          timeoutPromise,
-        ]) as TherapistProfile;
+        // Use API endpoint to get current therapist profile based on session
+        const response = await fetch("/api/therapists/profile", {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+          throw new Error(errorData.error || `Failed to fetch profile (${response.status})`);
+        }
+
+        const { profile: data } = await response.json() as { profile: TherapistProfile };
         
         // If name or email is missing from database, fallback to Google auth metadata
         if ((!data.name || data.name.trim() === '') || (!data.email || data.email.trim() === '')) {
@@ -104,26 +105,34 @@ export default function ProfilePage() {
     };
     
     loadProfile();
-  }, [effectiveUserId, setProfileDirect]);
+  }, [setProfileDirect]);
 
   // Setup real-time updates
   useEffect(() => {
-    if (!effectiveUserId) return;
+    if (!profile?.id) return;
     
-    const unsubscribe = setupRealtimeUpdates(effectiveUserId, () => {
+    const unsubscribe = setupRealtimeUpdates(profile.id, () => {
       // Refresh profile when real-time update is received
-      therapistService.getTherapistProfile(effectiveUserId, true).then((updatedProfile) => {
-        setProfile(updatedProfile);
-        // Also update AuthProvider context so sidebar reflects changes
-        setProfileDirect({ 
-          name: updatedProfile.name || null, 
-          image: updatedProfile.image || null 
-        });
-      }).catch(console.error);
+      fetch("/api/therapists/profile", {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+        .then(res => res.json())
+        .then(({ profile: updatedProfile }) => {
+          setProfile(updatedProfile);
+          // Also update AuthProvider context so sidebar reflects changes
+          setProfileDirect({ 
+            name: updatedProfile.name || null, 
+            image: updatedProfile.image || null 
+          });
+        })
+        .catch(console.error);
     });
     
     return unsubscribe;
-  }, [effectiveUserId, setProfileDirect]);
+  }, [profile?.id, setProfileDirect]);
 
   // Convert name to URL-friendly slug
   const nameToSlug = (name: string): string => {
@@ -146,10 +155,115 @@ export default function ProfilePage() {
       .slice(0, 2);
   };
 
+  // Handle image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setSaveError("Please select an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      setSaveError("Image size must be less than 5MB");
+      return;
+    }
+
+    setUploadingImage(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/user/upload-profile-image", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(errorData.error || "Failed to upload image");
+      }
+
+      const data = await response.json();
+      const newImageUrl = data.imageUrl;
+
+      // Update local profile state
+      setProfile((prev) => prev ? { ...prev, image: newImageUrl } : null);
+
+      // Immediately update AuthProvider context so sidebar updates instantly
+      setProfileDirect({
+        name: profile?.name || null,
+        image: newImageUrl || null,
+      });
+
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
+    } catch (error: any) {
+      console.error("Failed to upload image:", error);
+      setSaveError(error?.message || "Failed to upload image. Please try again.");
+    } finally {
+      setUploadingImage(false);
+      // Reset file input
+      if (e.target) {
+        e.target.value = "";
+      }
+    }
+  };
+
+  // Handle remove image
+  const handleRemoveImage = async () => {
+    if (!profile?.id) {
+      setSaveError("Cannot remove image: missing profile ID");
+      return;
+    }
+
+    setUploadingImage(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      // Update user record to set image to null
+      const result = await therapistService.updateProfile(profile.id, { image: null });
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      // Update local profile state
+      setProfile((prev) => prev ? { ...prev, image: null } : null);
+
+      // Immediately update AuthProvider context
+      setProfileDirect({
+        name: profile?.name || null,
+        image: null,
+      });
+
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
+    } catch (error: any) {
+      console.error("Failed to remove image:", error);
+      setSaveError(error?.message || "Failed to remove image. Please try again.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   // Handle name update
   const handleSaveName = async () => {
-    if (!effectiveUserId || !profile) {
-      console.error('Cannot save: missing user or profile', { hasUserId: !!effectiveUserId, hasProfile: !!profile });
+    if (!profile?.id) {
+      console.error('Cannot save: missing profile ID', { hasProfile: !!profile });
       return;
     }
 
@@ -164,9 +278,9 @@ export default function ProfilePage() {
 
     try {
       const newName = profile.name.trim();
-      console.log('Saving name:', { userId: effectiveUserId, name: newName });
+      console.log('Saving name:', { userId: profile.id, name: newName });
 
-      const result = await therapistService.updateProfile(effectiveUserId, { name: newName });
+      const result = await therapistService.updateProfile(profile.id, { name: newName });
       
       // Update local state
       if (result.data) {
@@ -201,8 +315,8 @@ export default function ProfilePage() {
 
   // Handle bio update
   const handleSaveBio = async () => {
-    if (!effectiveUserId || !profile) {
-      console.error('Cannot save: missing user or profile', { hasUserId: !!effectiveUserId, hasProfile: !!profile });
+    if (!profile?.id) {
+      console.error('Cannot save: missing profile ID', { hasProfile: !!profile });
       return;
     }
 
@@ -211,9 +325,9 @@ export default function ProfilePage() {
     setSaveSuccess(false);
 
     try {
-      console.log('Saving bio:', { userId: effectiveUserId, bioLength: profile.bio?.length || 0 });
+      console.log('Saving bio:', { userId: profile.id, bioLength: profile.bio?.length || 0 });
 
-      const result = await therapistService.updateProfile(effectiveUserId, { bio: profile.bio ?? undefined });
+      const result = await therapistService.updateProfile(profile.id, { bio: profile.bio ?? undefined });
       
       // Update local state with the saved bio (optimistic update)
       if (result.data) {
@@ -290,31 +404,49 @@ export default function ProfilePage() {
             </div>
             )}
             <div className="flex items-center gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                id="profile-image-upload"
+                disabled={uploadingImage}
+              />
               <Button
                 variant="outline"
-                className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-4 py-2"
+                className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-4 py-2 disabled:opacity-50"
                 onClick={() => {
-                  // TODO: Implement image upload
-                  console.log("Upload avatar clicked");
+                  document.getElementById("profile-image-upload")?.click();
                 }}
+                disabled={uploadingImage}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                Upload Avatar
+                {uploadingImage ? "Uploading..." : "Upload Avatar"}
               </Button>
-              <Button
-                variant="outline"
-                className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-4 py-2"
-                onClick={() => {
-                  // TODO: Implement remove image
-                  console.log("Remove avatar clicked");
-                }}
-              >
-                Remove
-              </Button>
+              {profile?.image && (
+                <Button
+                  variant="outline"
+                  className="bg-transparent border-[#262626] text-[#f9fafb] hover:bg-[#171717] px-4 py-2 disabled:opacity-50"
+                  onClick={handleRemoveImage}
+                  disabled={uploadingImage}
+                >
+                  Remove
+                </Button>
+              )}
             </div>
           </div>
+          {saveSuccess && (
+            <p className="text-xs text-green-400">
+              Profile picture updated successfully!
+            </p>
+          )}
+          {saveError && (
+            <p className="text-xs text-red-400">
+              {saveError}
+            </p>
+          )}
           <p className="text-xs text-[#9ca3af]">
-            Profile picture is set during enrollment and used throughout the platform.
+            Profile picture is displayed throughout the platform and to clients booking with you.
           </p>
         </div>
 
