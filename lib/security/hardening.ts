@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { randomBytes } from "crypto";
 
 /**
  * Security Hardening Utilities
  * 
- * Implements security headers, CSRF protection, and other security measures.
+ * Implements security headers. Edge-compatible (no Node.js modules).
  */
 export class SecurityHardener {
   /**
@@ -45,6 +44,7 @@ export class SecurityHardener {
 
   /**
    * Add security headers to response
+   * Edge-compatible - no Node.js modules
    */
   static addSecurityHeaders(response: NextResponse): NextResponse {
     const headers = this.getSecurityHeaders();
@@ -56,24 +56,6 @@ export class SecurityHardener {
     });
 
     return response;
-  }
-
-  /**
-   * Generate CSRF token
-   */
-  static generateCSRFToken(): string {
-    return randomBytes(32).toString("hex");
-  }
-
-  /**
-   * Validate CSRF token
-   */
-  static validateCSRFToken(token: string, sessionToken: string): boolean {
-    // In a production system, you'd store the CSRF token in the session
-    // and compare it with the token from the request
-    // For now, we'll use a simple comparison
-    // TODO: Implement proper CSRF token validation with session storage
-    return token === sessionToken;
   }
 }
 

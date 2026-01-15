@@ -8,6 +8,9 @@ import { EventBus } from "@/lib/events/event-bus";
 import { CSRFProtection } from "@/lib/security/csrf";
 import { SecurityHardener } from "@/lib/security/hardening";
 
+// Mark this route as Node.js runtime to support crypto module
+export const runtime = "nodejs";
+
 export async function POST(request: NextRequest) {
   try {
     // Validate CSRF token for state-changing operations

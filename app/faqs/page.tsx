@@ -1,6 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ChevronDown } from "lucide-react";
+import { SharedNav } from "@/components/layout/SharedNav";
+import { SharedFooter } from "@/components/layout/SharedFooter";
 
 const faqs = [
   {
@@ -67,36 +68,17 @@ const faqs = [
 
 export default function FAQsPage() {
   return (
-    <div className="min-h-screen bg-white text-[#3a3628]">
-      {/* Header */}
-      <header className="border-b border-[#3a3628]/10 bg-white sticky top-0 z-50">
-        <div className="container mx-auto px-6 sm:px-8 lg:px-12 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/ealho logo.png"
-              alt="Ealho"
-              width={180}
-              height={48}
-              className="h-10 sm:h-12 w-auto object-contain"
-              priority
-            />
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-sm text-[#3a3628]/70 hover:text-[#3a3628] transition-colors">
-              Back to Home
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#474433] text-white">
+      <SharedNav />
 
       <main>
         {/* Hero */}
         <section className="container mx-auto px-6 py-16">
           <div className="max-w-4xl mx-auto text-center space-y-6">
-            <h1 className="text-4xl md:text-5xl font-bold text-[#3a3628]">
+            <h1 className="text-4xl md:text-5xl font-bold text-white">
               ❓ Frequently Asked Questions
             </h1>
-            <p className="text-lg text-[#3a3628]/80 max-w-2xl mx-auto">
+            <p className="text-lg text-white/80 max-w-2xl mx-auto">
               Find answers to common questions about Ealho Therapy services, pricing, and policies.
             </p>
           </div>
@@ -108,14 +90,14 @@ export default function FAQsPage() {
             {faqs.map((faq, idx) => (
               <details
                 key={idx}
-                className="group rounded-lg border border-[#3a3628]/20 bg-white shadow-sm hover:shadow-md transition-shadow"
+                className="group rounded-lg border border-white/20 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:shadow-lg transition-all"
               >
                 <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
-                  <h3 className="font-semibold text-[#3a3628] pr-8">{faq.question}</h3>
-                  <ChevronDown className="h-5 w-5 text-[#3a3628]/60 flex-shrink-0 transition-transform group-open:rotate-180" />
+                  <h3 className="font-semibold text-white pr-8">{faq.question}</h3>
+                  <ChevronDown className="h-5 w-5 text-white/60 flex-shrink-0 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="px-6 pb-6 pt-0">
-                  <p className="text-[#3a3628]/80 leading-relaxed">{faq.answer}</p>
+                  <p className="text-white/80 leading-relaxed">{faq.answer}</p>
                 </div>
               </details>
             ))}
@@ -124,21 +106,21 @@ export default function FAQsPage() {
 
         {/* Still Have Questions */}
         <section className="container mx-auto px-6 py-16">
-          <div className="max-w-4xl mx-auto text-center bg-[#EAF2CF]/20 rounded-2xl p-12 space-y-6">
-            <h2 className="text-3xl font-bold text-[#3a3628]">Still Have Questions?</h2>
-            <p className="text-lg text-[#3a3628]/80">
+          <div className="max-w-4xl mx-auto text-center bg-gradient-to-br from-[#EAF2CF]/20 to-[#d9e5b8]/20 rounded-2xl p-12 space-y-6 border border-[#EAF2CF]/30">
+            <h2 className="text-3xl font-bold text-white">Still Have Questions?</h2>
+            <p className="text-lg text-white/80">
               Can't find what you're looking for? We're here to help.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
                 href="mailto:michaelasereoo@gmail.com"
-                className="bg-[#3a3628] hover:bg-[#474433] text-white px-6 py-3 rounded-lg font-semibold transition-colors inline-block"
+                className="bg-[#EAF2CF] hover:bg-[#d9e5b8] text-[#3a3628] px-6 py-3 rounded-lg font-semibold transition-colors inline-block"
               >
                 Contact Us
               </a>
               <Link
                 href="/therapy"
-                className="border-2 border-[#3a3628] text-[#3a3628] hover:bg-[#3a3628] hover:text-white px-6 py-3 rounded-lg font-semibold transition-colors inline-block"
+                className="border-2 border-[#EAF2CF] text-[#EAF2CF] hover:bg-[#EAF2CF] hover:text-[#3a3628] px-6 py-3 rounded-lg font-semibold transition-colors inline-block"
               >
                 View Pricing Plans
               </Link>
@@ -147,14 +129,7 @@ export default function FAQsPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-[#3a3628]/10 bg-[#3a3628] text-white/70">
-        <div className="container mx-auto px-6 py-8">
-          <div className="text-center text-sm">
-            <p>© {new Date().getFullYear()} Ealho Therapy. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <SharedFooter />
     </div>
   );
 }

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { CSRFProtection } from "@/lib/security/csrf";
+import { generateCSRFToken } from "@/lib/security/csrf";
+
+// Mark this route as Node.js runtime to support crypto module
+export const runtime = "nodejs";
 
 /**
  * GET /api/csrf-token
@@ -8,7 +11,7 @@ import { CSRFProtection } from "@/lib/security/csrf";
  */
 export async function GET() {
   try {
-    const token = await CSRFProtection.generateToken();
+    const token = generateCSRFToken();
 
     return NextResponse.json({
       token,

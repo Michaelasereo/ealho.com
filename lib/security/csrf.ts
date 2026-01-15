@@ -50,3 +50,33 @@ export function createCSRFTokenHeader(token: string): HeadersInit {
     "X-CSRF-Token": token,
   };
 }
+
+/**
+ * CSRF Protection object with methods for compatibility
+ */
+export const CSRFProtection = {
+  generateToken: () => Promise.resolve(generateCSRFToken()),
+  validateRequest: async (request: Request, token: string | null) => {
+    const sessionToken = getCSRFTokenFromRequest(request);
+    const valid = validateCSRFToken(token || "", sessionToken);
+    return {
+      valid,
+      error: valid ? null : "Invalid CSRF token",
+    };
+  },
+};
+
+/**
+ * CSRF Protection object with methods for compatibility
+ */
+export const CSRFProtection = {
+  generateToken: () => Promise.resolve(generateCSRFToken()),
+  validateRequest: async (request: Request, token: string | null) => {
+    const sessionToken = getCSRFTokenFromRequest(request);
+    const valid = validateCSRFToken(token || "", sessionToken);
+    return {
+      valid,
+      error: valid ? null : "Invalid CSRF token",
+    };
+  },
+};
