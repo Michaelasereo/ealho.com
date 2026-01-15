@@ -17,48 +17,12 @@ const faqs = [
     answer: "No, all packages are non-refundable and non-transferable, as stated in our Terms.",
   },
   {
-    question: "Can I extend my package validity?",
-    answer: "Yes, for medical or emergency reasons with documentation.",
-  },
-  {
-    question: "Do you offer payment plans?",
-    answer: "Currently single payments only. Contact us for corporate or special arrangement inquiries.",
-  },
-  {
     question: "What payment methods do you accept?",
     answer: "We accept bank transfers to Prospa (0120103991, THE MICHAEL'S JOURNAL), Paystack payment gateway, and other approved payment methods.",
   },
   {
-    question: "How do I reschedule a session?",
-    answer: "Ealho Access: 24-hour notice required for rescheduling. Ealho Deep Intensive: 6-hour notice required for rescheduling.",
-  },
-  {
-    question: "What happens if I miss a session?",
-    answer: "No refunds for missed sessions. Late cancellations forfeit the session fee.",
-  },
-  {
     question: "Is Ealho Therapy an emergency service?",
     answer: "No, EALHO THERAPY IS NOT AN EMERGENCY SERVICE. In crisis situations, call 112 (Nigeria Emergency Services), go to the nearest hospital, or contact a crisis hotline.",
-  },
-  {
-    question: "Do you guarantee therapeutic outcomes?",
-    answer: "We do not guarantee specific therapeutic outcomes. Progress depends on multiple factors.",
-  },
-  {
-    question: "What information is shared with my therapist?",
-    answer: "We share necessary information for therapeutic work, including assessment results, progress notes, and scheduling information.",
-  },
-  {
-    question: "Is my data secure?",
-    answer: "Yes, we use end-to-end encryption for sessions, secure data storage, regular security audits, and access controls. We are NDPA 2023 compliant.",
-  },
-  {
-    question: "Can I request my data to be deleted?",
-    answer: "Yes, under Nigeria's Data Protection Act 2023, you have the right to request deletion. Contact privacy@ealho.com to exercise this right.",
-  },
-  {
-    question: "Do you offer in-person sessions?",
-    answer: "Yes, Deep Intensive package includes in-person option at Lagos VI location.",
   },
   {
     question: "How do I book a session?",

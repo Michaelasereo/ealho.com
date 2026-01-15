@@ -17,9 +17,9 @@ const pricingTiers = [
     ],
     buttonText: "BOOK SINGLE ACCESS SESSION",
     buttonLink: "/therapy/book",
-    color: "from-blue-500/20 to-blue-600/20",
-    borderColor: "border-blue-400/30",
-    buttonColor: "bg-blue-600 hover:bg-blue-700",
+    color: "from-[#EAF2CF]/20 to-[#d9e5b8]/20",
+    borderColor: "border-[#EAF2CF]/30",
+    buttonColor: "bg-[#EAF2CF] hover:bg-[#d9e5b8] text-[#3a3628]",
   },
   {
     name: "Ealho Deep Intensive",
@@ -36,9 +36,9 @@ const pricingTiers = [
     ],
     buttonText: "BOOK SINGLE DEEP INTENSIVE SESSION",
     buttonLink: "/therapy/book",
-    color: "from-purple-500/20 to-purple-600/20",
-    borderColor: "border-purple-400/30",
-    buttonColor: "bg-purple-600 hover:bg-purple-700",
+    color: "from-[#EAF2CF]/30 to-[#d9e5b8]/30",
+    borderColor: "border-[#EAF2CF]/40",
+    buttonColor: "bg-[#EAF2CF] hover:bg-[#d9e5b8] text-[#3a3628]",
     popular: true,
   },
 ];
@@ -173,7 +173,7 @@ export default function TherapyPage() {
                     </ul>
                     <Link
                       href={tier.buttonLink}
-                      className={`block w-full ${tier.buttonColor} text-white text-center py-3 px-6 rounded-lg font-semibold transition-colors mt-6`}
+                      className={`block w-full ${tier.buttonColor} text-center py-3 px-6 rounded-lg font-semibold transition-colors mt-6`}
                     >
                       {tier.buttonText}
                     </Link>
@@ -291,12 +291,12 @@ export default function TherapyPage() {
           <div className="max-w-4xl mx-auto space-y-6">
             <h2 className="text-3xl font-bold text-white mb-8 text-center">🎯 HOW TO CHOOSE</h2>
             <div className="space-y-4">
-              <div className="border-l-4 border-blue-400 pl-6 py-4 bg-blue-500/20 rounded-r-lg">
+              <div className="border-l-4 border-[#EAF2CF] pl-6 py-4 bg-[#EAF2CF]/20 rounded-r-lg">
                 <h3 className="font-semibold text-white mb-2">"I'm new to therapy or have specific goals"</h3>
                 <p className="text-white/80 mb-3">→ Choose Ealho Access Package</p>
                 <p className="text-white/70 text-sm">Get consistent support at an accessible price. Perfect for building coping skills and addressing targeted issues.</p>
               </div>
-              <div className="border-l-4 border-purple-400 pl-6 py-4 bg-purple-500/20 rounded-r-lg">
+              <div className="border-l-4 border-[#EAF2CF] pl-6 py-4 bg-[#EAF2CF]/30 rounded-r-lg">
                 <h3 className="font-semibold text-white mb-2">"I want profound, accelerated transformation"</h3>
                 <p className="text-white/80 mb-3">→ Choose Deep Intensive Package</p>
                 <p className="text-white/70 text-sm">Invest in deep work with premium features. Ideal for complex concerns and rapid personal growth.</p>
