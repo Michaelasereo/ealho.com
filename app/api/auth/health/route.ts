@@ -38,7 +38,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Test auth connection
-    let authStatus = {
+    let authStatus: {
+      hasSession: boolean;
+      userId: string | null;
+      email: string | null;
+      error: string | null;
+    } = {
       hasSession: false,
       userId: null,
       email: null,
