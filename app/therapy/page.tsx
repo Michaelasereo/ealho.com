@@ -32,7 +32,6 @@ const pricingTiers = [
       "Weekly Q&A access",
       "Monthly progress assessments",
       "Priority scheduling",
-      "In-person option (Lagos VI)",
     ],
     buttonText: "BOOK SINGLE DEEP INTENSIVE SESSION",
     buttonLink: "/therapy/book",

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Calendar, ArrowLeft, User, Share2 } from "lucide-react";
+import { Calendar, ArrowLeft, User, Share2, ImageIcon } from "lucide-react";
 import { SharedNav } from "@/components/layout/SharedNav";
 import { SharedFooter } from "@/components/layout/SharedFooter";
 import { notFound } from "next/navigation";
@@ -218,10 +218,7 @@ export default async function BlogArticlePage({ params }: { params: Promise<{ sl
 
             {/* Article Image Placeholder */}
             <div className="aspect-video bg-gradient-to-br from-[#EAF2CF]/20 to-[#d9e5b8]/20 rounded-lg mb-12 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-6xl mb-4">📝</div>
-                <p className="text-white/50">Article Image</p>
-              </div>
+              <ImageIcon className="h-24 w-24 text-white/30" />
             </div>
 
             {/* Article Content */}
