@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Test database connection
-    let dbStatus = { connected: false, userCount: 0, error: null };
+    let dbStatus: { connected: boolean; userCount: number; error: string | null } = { connected: false, userCount: 0, error: null };
     try {
       const supabaseAdmin = createAdminClientServer();
       const { count, error: countError } = await supabaseAdmin
