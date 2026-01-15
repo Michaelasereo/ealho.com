@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createAdminClientServer } from "@/lib/supabase/server";
-import { getCurrentUserFromRequest } from "@/lib/auth-helpers";
+import { createClient } from "@/lib/supabase/server/client";
 import { DailyCoVideoCall } from "@/components/video-call/DailyCoVideoCall";
 
 interface VideoCallPageProps {
@@ -11,13 +11,30 @@ export default async function VideoCallPage({ params }: VideoCallPageProps) {
   const { bookingId } = await params;
   
   try {
-    // Get current user
-    const currentUser = await getCurrentUserFromRequest();
-    if (!currentUser) {
+    // Get current user (server component pattern)
+    const supabase = await createClient();
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !authUser) {
       redirect("/login?redirect=/video-call/" + bookingId);
     }
 
+    // Get user from database to check role
     const supabaseAdmin = createAdminClientServer();
+    const { data: dbUser } = await supabaseAdmin
+      .from("users")
+      .select("id, role")
+      .eq("id", authUser.id)
+      .single();
+
+    if (!dbUser) {
+      redirect("/login?redirect=/video-call/" + bookingId);
+    }
+
+    const currentUser = {
+      id: dbUser.id,
+      role: dbUser.role,
+    };
 
     // Fetch booking details
     const { data: booking, error: bookingError } = await supabaseAdmin

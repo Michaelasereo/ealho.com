@@ -22,7 +22,7 @@ export interface TherapistProfile {
   name: string;
   email: string;
   bio: string;
-  image: string;
+  image: string | null;
   // Metadata fields (from enrollment form)
   specialization?: string;
   licenseNumber?: string;

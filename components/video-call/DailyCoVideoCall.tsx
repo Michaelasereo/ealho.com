@@ -70,20 +70,21 @@ export function DailyCoVideoCall({
           userName: userRole === "THERAPIST" ? "Therapist" : "Client",
         });
 
-        newCallObject
-          .on("joined-meeting", () => {
-            console.log("[Video Call] Joined meeting");
-            setCallState("joined");
-          })
-          .on("left-meeting", () => {
-            console.log("[Video Call] Left meeting");
-            setCallState("left");
-          })
-          .on("error", (error: any) => {
-            console.error("[Video Call] Error:", error);
-            setErrorMessage(error.message || "Failed to join video call");
-            setCallState("error");
-          });
+        newCallObject.on("joined-meeting", () => {
+          console.log("[Video Call] Joined meeting");
+          setCallState("joined");
+        });
+        
+        newCallObject.on("left-meeting", () => {
+          console.log("[Video Call] Left meeting");
+          setCallState("left");
+        });
+        
+        newCallObject.on("error", (error: any) => {
+          console.error("[Video Call] Error:", error);
+          setErrorMessage(error.message || "Failed to join video call");
+          setCallState("error");
+        });
 
         setCallObject(newCallObject);
 

@@ -53,8 +53,9 @@ export async function transcribeAudio(
     } else if (audioFile instanceof Blob) {
       formData.append("file", audioFile, "audio.webm"); // Default filename
     } else {
-      // Buffer - convert to Blob
-      const blob = new Blob([audioFile], { type: "audio/webm" });
+      // Buffer - convert to Blob (Buffer needs to be converted to ArrayBuffer/Uint8Array)
+      const buffer = audioFile as Buffer;
+      const blob = new Blob([new Uint8Array(buffer)], { type: "audio/webm" });
       formData.append("file", blob, "audio.webm");
     }
 

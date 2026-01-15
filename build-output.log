@@ -1,0 +1,29 @@
+
+> daiyet-app@0.1.0 build
+> NODE_OPTIONS='--max-old-space-size=4096' next build
+
+   ▲ Next.js 16.0.8 (Turbopack)
+   - Environments: .env.local, .env
+
+ ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 16.5s
+   Running TypeScript ...
+Failed to compile.
+
+./app/therapist-dashboard/settings/profile/page.tsx:243:18
+Type error: Argument of type '(prev: TherapistProfile | null) => { image: null; id: string; name: string; email: string; bio: string; specialization?: string | undefined; licenseNumber?: string | undefined; experience?: string | undefined; location?: string | undefined; qualifications?: string[] | undefined; updatedAt: string | Date; } | null' is not assignable to parameter of type 'SetStateAction<TherapistProfile | null>'.
+  Type '(prev: TherapistProfile | null) => { image: null; id: string; name: string; email: string; bio: string; specialization?: string | undefined; licenseNumber?: string | undefined; experience?: string | undefined; location?: string | undefined; qualifications?: string[] | undefined; updatedAt: string | Date; } | null' is not assignable to type '(prevState: TherapistProfile | null) => TherapistProfile | null'.
+    Type '{ image: null; id: string; name: string; email: string; bio: string; specialization?: string | undefined; licenseNumber?: string | undefined; experience?: string | undefined; location?: string | undefined; qualifications?: string[] | undefined; updatedAt: string | Date; } | null' is not assignable to type 'TherapistProfile | null'.
+      Type '{ image: null; id: string; name: string; email: string; bio: string; specialization?: string; licenseNumber?: string; experience?: string; location?: string; qualifications?: string[]; updatedAt: string | Date; }' is not assignable to type 'TherapistProfile'.
+        Types of property 'image' are incompatible.
+          Type 'null' is not assignable to type 'string'.
+
+[0m [90m 241 |[39m
+ [90m 242 |[39m       [90m// Update local profile state[39m
+[31m[1m>[22m[39m[90m 243 |[39m       setProfile((prev) [33m=>[39m prev [33m?[39m { [33m...[39mprev[33m,[39m image[33m:[39m [36mnull[39m } [33m:[39m [36mnull[39m)[33m;[39m
+ [90m     |[39m                  [31m[1m^[22m[39m
+ [90m 244 |[39m
+ [90m 245 |[39m       [90m// Immediately update AuthProvider context[39m
+ [90m 246 |[39m       setProfileDirect({[0m
+Next.js build worker exited with code: 1 and signal: null

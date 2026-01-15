@@ -198,18 +198,19 @@ export class EventBus {
     try {
       // Insert into scheduled_jobs table (if it exists)
       // Otherwise, just log for now
-      await client
+      const { error } = await client
         .from("scheduled_jobs")
         .insert({
           job_type: jobType,
           job_data: jobData,
           status: "pending",
           created_at: new Date().toISOString(),
-        })
-        .catch(() => {
-          // Table might not exist yet - that's okay
-          console.log(`Job queued (table may not exist): ${jobType}`);
         });
+      
+      if (error) {
+        // Table might not exist yet - that's okay
+        console.log(`Job queued (table may not exist): ${jobType}`, error.message);
+      }
     } catch (error) {
       // Don't fail event publishing if job queueing fails
       console.warn(`Failed to queue job ${jobType}:`, error);

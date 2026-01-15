@@ -268,7 +268,7 @@ export class UnifiedUserSystem {
         return false;
       }
 
-      return data && data.length > 0;
+      return !!(data && data.length > 0);
     } catch (error: any) {
       console.error("UnifiedUserSystem.userExists exception:", error);
       return false;
